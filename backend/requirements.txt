@@ -1,0 +1,13 @@
+ fastapi
+   uvicorn
+   sqlalchemy
+   psycopg2-binary
+   python-multipart
+   python-dotenv
+   pydantic
+   easyocr
+   pymupdf
+   pdf2image
+   pillow
+   google-generativeai
+   groq
