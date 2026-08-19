@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import Base,engine
+from app.ingestion.router import router as ingestion_router
 
 app=FastAPI()
 
@@ -14,6 +15,8 @@ allow_headers=["*"],
 
 Base.metadata.create_all(bind=engine)
 
-@app.get("/health")
-def health():
-    return {"status":"ok"}
+
+app.include_router(
+    ingestion_router,
+    prefix="/documents"
+)
