@@ -1,5 +1,6 @@
 backend/myvenv/
 backend/.env
+backend/docusense.db
 frontend/node_modules/
 frontend/.env
 __pycache__/
