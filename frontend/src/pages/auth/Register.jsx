@@ -6,70 +6,69 @@ export default function Register() {
   const [department, setDepartment] = useState("");
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log("Register");
-  };
-
   return (
-    <div className="min-h-screen flex bg-[#f7f8fc]">
+    <div className="h-screen flex bg-[#F3F4F6] overflow-hidden">
 
-      {/* LEFT */}
+      {/* Left */}
       <div
-        className="hidden md:flex w-1/2 min-h-screen bg-cover bg-center relative text-white"
+        className="hidden md:flex w-1/2 h-screen bg-cover bg-center relative text-white"
         style={{ backgroundImage: "url('/kmrl-register-bg.jpg')" }}
       >
-        <div className="absolute inset-0 bg-[#032e5f]/90" />
+        <div className="absolute inset-0 bg-[#002D62]/85" />
 
-        <div className="relative z-10 flex flex-col justify-center w-full px-14">
+        <div className="relative z-10 flex flex-col justify-center w-full px-16">
 
-          <h1 className="text-[23px] font-bold flex items-center gap-2">
+          <h1 className="text-[30px] font-bold flex items-center gap-3">
             ▰ KMRL DocuSense
           </h1>
 
-          <h2 className="text-[13px] font-semibold leading-relaxed mt-7 max-w-[310px]">
+          <h2 className="text-[19px] font-semibold leading-relaxed mt-8 max-w-[500px]">
             Infrastructure Intelligence powered by precise
             <br />
             document extraction and analytics.
           </h2>
 
-          <div className="flex gap-2 mt-8">
-            <span className="px-3 py-1.5 rounded bg-white/10 border border-white/15
-              text-[8px] text-blue-100">
-              🟢 Secure Architecture
+          <div className="flex gap-3 mt-8">
+
+            <span className="px-4 py-2 rounded-lg bg-white/10 border border-white/15
+              text-[10px]">
+              <span className="text-[#10B981]">●</span> Secure Architecture
             </span>
 
-            <span className="px-3 py-1.5 rounded bg-white/10 border border-white/15
-              text-[8px] text-blue-100">
+            <span className="px-4 py-2 rounded-lg bg-white/10 border border-white/15
+              text-[10px]">
               ↗ High-Speed Extraction
             </span>
-          </div>
 
+          </div>
         </div>
       </div>
 
 
-      {/* RIGHT */}
-      <div className="w-full md:w-1/2 min-h-screen flex items-center justify-center px-6">
+      {/* Right */}
+      <div className="w-full md:w-1/2 h-screen flex items-center justify-center px-10">
 
-        <div className="w-full max-w-[292px]">
+        <div className="w-full max-w-[460px]">
 
           {/* Heading */}
-          <div className="mb-6">
-            <h2 className="text-[18px] font-bold text-slate-900">
+          <div className="mb-5">
+            <h2 className="text-[22px] font-bold text-[#111827]">
               Create Your Account
             </h2>
 
-            <p className="text-[8px] text-slate-500 mt-1">
+            <p className="text-[11px] text-[#1E293B]/65 mt-1">
               Register for secure access to enterprise document analytics.
             </p>
           </div>
 
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            console.log("Register");
+          }}>
 
             {/* Name */}
-            <label className="block text-[8px] font-medium text-slate-600 mb-1">
+            <label className="block text-[10px] font-semibold text-[#1E293B] mb-1">
               Full Name
             </label>
 
@@ -77,13 +76,15 @@ export default function Register() {
               type="text"
               placeholder="John Doe"
               required
-              className="w-full h-7 px-3 mb-3 border border-slate-200 rounded-md
-                bg-white text-[9px] outline-none focus:border-[#073566]"
+              className="w-full h-10 px-4 mb-3 border border-[#E5E7EB] rounded-lg
+                bg-white text-[12px] text-[#111827] outline-none
+                placeholder:text-[#9CA3AF] focus:border-[#0056B3]
+                focus:ring-2 focus:ring-[#0056B3]/10"
             />
 
 
             {/* Email */}
-            <label className="block text-[8px] font-medium text-slate-600 mb-1">
+            <label className="block text-[10px] font-semibold text-[#1E293B] mb-1">
               Work Email
             </label>
 
@@ -91,13 +92,15 @@ export default function Register() {
               type="email"
               placeholder="name@kmrl.co.in"
               required
-              className="w-full h-7 px-3 mb-3 border border-slate-200 rounded-md
-                bg-white text-[9px] outline-none focus:border-[#073566]"
+              className="w-full h-10 px-4 mb-3 border border-[#E5E7EB] rounded-lg
+                bg-white text-[12px] text-[#111827] outline-none
+                placeholder:text-[#9CA3AF] focus:border-[#0056B3]
+                focus:ring-2 focus:ring-[#0056B3]/10"
             />
 
 
             {/* Department */}
-            <label className="block text-[8px] font-medium text-slate-600 mb-1">
+            <label className="block text-[10px] font-semibold text-[#1E293B] mb-1">
               Department
             </label>
 
@@ -105,9 +108,9 @@ export default function Register() {
               value={department}
               onChange={(e) => setDepartment(e.target.value)}
               required
-              className="w-full h-7 px-3 mb-3 border border-slate-200 rounded-md
-                bg-white text-[9px] text-slate-500 outline-none
-                focus:border-[#073566]"
+              className="w-full h-10 px-4 mb-3 border border-[#E5E7EB] rounded-lg
+                bg-white text-[12px] text-[#1E293B] outline-none
+                focus:border-[#0056B3] focus:ring-2 focus:ring-[#0056B3]/10"
             >
               <option value="">Select your department</option>
               <option>Operations</option>
@@ -120,10 +123,10 @@ export default function Register() {
 
 
             {/* Passwords */}
-            <div className="grid grid-cols-2 gap-2 mb-3">
+            <div className="grid grid-cols-2 gap-4 mb-3">
 
               <div>
-                <label className="block text-[8px] font-medium text-slate-600 mb-1">
+                <label className="block text-[10px] font-semibold text-[#1E293B] mb-1">
                   Password
                 </label>
 
@@ -131,13 +134,15 @@ export default function Register() {
                   type={show ? "text" : "password"}
                   placeholder="••••••••"
                   required
-                  className="w-full h-7 px-3 border border-slate-200 rounded-md
-                    bg-white text-[9px] outline-none focus:border-[#073566]"
+                  className="w-full h-10 px-4 border border-[#E5E7EB] rounded-lg
+                    bg-white text-[12px] text-[#111827] outline-none
+                    placeholder:text-[#9CA3AF] focus:border-[#0056B3]
+                    focus:ring-2 focus:ring-[#0056B3]/10"
                 />
               </div>
 
               <div>
-                <label className="block text-[8px] font-medium text-slate-600 mb-1">
+                <label className="block text-[10px] font-semibold text-[#1E293B] mb-1">
                   Confirm Password
                 </label>
 
@@ -145,44 +150,46 @@ export default function Register() {
                   type={show ? "text" : "password"}
                   placeholder="••••••••"
                   required
-                  className="w-full h-7 px-3 border border-slate-200 rounded-md
-                    bg-white text-[9px] outline-none focus:border-[#073566]"
+                  className="w-full h-10 px-4 border border-[#E5E7EB] rounded-lg
+                    bg-white text-[12px] text-[#111827] outline-none
+                    placeholder:text-[#9CA3AF] focus:border-[#0056B3]
+                    focus:ring-2 focus:ring-[#0056B3]/10"
                 />
               </div>
 
             </div>
 
 
-            {/* Password visibility */}
-            <label className="flex items-center gap-1.5 mb-4">
+            {/* Show Password */}
+            <label className="flex items-center gap-2 mb-3 cursor-pointer">
               <input
                 type="checkbox"
                 onChange={() => setShow(!show)}
-                className="w-3 h-3 accent-[#073566]"
+                className="w-3.5 h-3.5 accent-[#0056B3]"
               />
 
-              <span className="text-[8px] text-slate-500">
+              <span className="text-[10px] text-[#1E293B]/70">
                 Show passwords
               </span>
             </label>
 
 
             {/* Privacy */}
-            <label className="flex items-start gap-1.5 mb-5">
+            <label className="flex items-start gap-2 mb-4 cursor-pointer">
 
               <input
                 type="checkbox"
                 required
-                className="w-3 h-3 mt-[1px] accent-[#073566]"
+                className="w-3.5 h-3.5 mt-0.5 accent-[#0056B3]"
               />
 
-              <span className="text-[8px] leading-relaxed text-slate-500">
+              <span className="text-[10px] leading-relaxed text-[#1E293B]/70">
                 I agree to the{" "}
-                <span className="text-[#073566] font-medium">
+                <span className="text-[#0056B3] font-medium">
                   KMRL Data Privacy Policy
                 </span>{" "}
                 and{" "}
-                <span className="text-[#073566] font-medium">
+                <span className="text-[#0056B3] font-medium">
                   Terms of Use.
                 </span>
               </span>
@@ -193,27 +200,28 @@ export default function Register() {
             {/* Register */}
             <button
               type="submit"
-              className="w-full h-7 rounded-md bg-[#032d5c]
-                hover:bg-[#06254a] text-white text-[9px]
-                font-semibold transition"
+              className="w-full h-11 rounded-lg bg-[#002D62] hover:bg-[#0056B3]
+                text-white text-[12px] font-semibold transition shadow-sm"
             >
-              Create Account&nbsp; →
+              Create Account →
             </button>
 
           </form>
 
 
-          {/* Sign in */}
-          <p className="text-center text-[8px] text-slate-500 mt-7">
+          {/* Sign In */}
+          <p className="text-center text-[10px] text-[#1E293B]/65 mt-5">
             Already have an account?{" "}
-            <button type="button" className="font-semibold text-[#073566]"
-                onClick={() => navigate("/login")}>
-                Sign In
+            <button
+              type="button"
+              onClick={() => navigate("/login")}
+              className="font-semibold text-[#0056B3] hover:text-[#002D62]"
+            >
+              Sign In
             </button>
           </p>
 
         </div>
-
       </div>
 
     </div>
