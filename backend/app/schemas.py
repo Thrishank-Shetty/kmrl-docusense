@@ -8,6 +8,7 @@ class DocumentResponse(BaseModel):
     id:int
     filename:str
     doc_type:str | None=None
+    summary:str | None=None  
     entities:dict
     upload_date:datetime 
 

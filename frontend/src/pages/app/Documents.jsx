@@ -103,6 +103,9 @@ export default function Documents() {
 
               {expandedId === doc.id && (
                 <div className="border-t border-slate-100 bg-[#fafbff] px-3.5 py-3">
+                   {detail?.document?.summary && (
+      <p className="mb-2 text-[9px] text-slate-600">{detail.document.summary}</p>
+    )}
                   {detailLoading ? (
                     <Loader2 size={14} className="animate-spin text-slate-400" />
                   ) : detail?.compliance?.length ? (
