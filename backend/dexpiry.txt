@@ -1,0 +1,9 @@
+data = {
+    "compliance_risk": {
+        "has_deadline": True,
+        "deadline_date": "2026-08-26",
+        "risk_type": "Contract Expiry"
+    }
+}
+
+print(calculate_risk(data))

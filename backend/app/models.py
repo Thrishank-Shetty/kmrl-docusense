@@ -1,5 +1,5 @@
 from app.database import Base
-from sqlalchemy import Integer,Column,String,Text,JSON,DateTime,ForeignKey,Date
+from sqlalchemy import Integer, Column, String, Text, JSON, DateTime, ForeignKey, Date
 from datetime import datetime
 from sqlalchemy.orm import relationship
 
@@ -11,7 +11,7 @@ class Document(Base):
     doc_type=Column(String,nullable=True)
     entities=Column(JSON)
     upload_date=Column(DateTime,default=datetime.now)
-    extraction_confidence=Column(String)
+    extraction_confidence = Column(String)
     compliance=relationship(
         "ComplianceItem",
         back_populates="document"

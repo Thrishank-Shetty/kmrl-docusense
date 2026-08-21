@@ -1,0 +1,5 @@
+KMRL CONTRACT
+Reference: KMRL/2026/001
+Vendor: ABC Infrastructure Pvt Ltd
+Amount: INR 500000
+Contract expiry date: 2026-12-31
