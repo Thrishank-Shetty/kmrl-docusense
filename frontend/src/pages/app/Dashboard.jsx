@@ -1,9 +1,5 @@
-const stats = [
-  ["TOTAL DOCUMENTS PROCESSED", "11,936", "12% ↑ this month", "#0056B3"],
-  ["EXTRACTION ACCURACY", "96.4%", "-", "#0056B3"],
-  ["PENDING REVIEWS", "42", "Action required", "#EF4444"],
-  ["SYSTEM STATUS", "Healthy", "", "#10B981"],
-];
+import { useEffect, useState } from "react";
+import { getComplianceStats } from "../../lib/api";
 
 const distribution = [
   ["Technical Specs", 45, "#002D62"],
@@ -13,12 +9,46 @@ const distribution = [
 ];
 
 export default function Dashboard() {
+  const [complianceStats, setComplianceStats] = useState(null);
+
+  useEffect(() => {
+    getComplianceStats()
+      .then((res) => setComplianceStats(res.data))
+      .catch((err) => console.error(err));
+  }, []);
+
+  const stats = [
+    [
+      "TOTAL DOCUMENTS PROCESSED",
+      complianceStats?.total_documents ?? "—",
+      "",
+      "#0056B3",
+    ],
+    [
+      "CRITICAL RISKS",
+      complianceStats?.critical ?? "—",
+      "Action required",
+      "#EF4444",
+    ],
+    [
+      "DUE IN 7 DAYS",
+      complianceStats?.upcoming_7_days ?? "—",
+      "",
+      "#0056B3",
+    ],
+    [
+      "OVERDUE",
+      complianceStats?.overdue ?? "—",
+      "",
+      "#EF4444",
+    ],
+  ];
+
   return (
     <main className="min-h-full bg-[#F3F4F6] p-5">
 
       {/* Header */}
       <div className="flex items-start justify-between mb-5">
-
         <div>
           <h1 className="text-[20px] font-bold text-[#111827]">
             Welcome back, Administrator.
@@ -29,23 +59,22 @@ export default function Dashboard() {
           </p>
         </div>
 
-        <button className="
-          px-4 h-9
-          rounded-md
-          bg-[#002D62]
-          hover:bg-[#0056B3]
-          text-white text-[10px] font-semibold
-          transition
-        ">
+        <button
+          className="
+            px-4 h-9
+            rounded-md
+            bg-[#002D62]
+            hover:bg-[#0056B3]
+            text-white text-[10px] font-semibold
+            transition
+          "
+        >
           + &nbsp;Upload Documents
         </button>
-
       </div>
-
 
       {/* Stats */}
       <div className="grid grid-cols-4 gap-3 mb-4">
-
         {stats.map(([title, value, extra, color]) => (
           <div
             key={title}
@@ -57,9 +86,7 @@ export default function Dashboard() {
               px-4 py-3
             "
           >
-
             <div className="flex justify-between items-center">
-
               <span className="text-[8px] font-medium text-[#1E293B]/70">
                 {title}
               </span>
@@ -70,11 +97,9 @@ export default function Dashboard() {
               >
                 ▤
               </span>
-
             </div>
 
             <div className="flex items-end gap-2 mt-2">
-
               <span
                 className={`font-bold text-[#111827] leading-none ${
                   value === "Healthy"
@@ -98,33 +123,31 @@ export default function Dashboard() {
                   {extra}
                 </span>
               )}
-
             </div>
-
           </div>
         ))}
-
       </div>
-
 
       {/* Main Content */}
       <div className="grid grid-cols-[minmax(0,1fr)_250px] gap-4">
 
         {/* Recent Activity */}
-        <section className="
-          bg-white
-          border border-[#E5E7EB]
-          rounded-lg
-          overflow-hidden
-        ">
-
-          <div className="
-            h-11
-            px-4
-            flex items-center justify-between
-            border-b border-[#E5E7EB]
-          ">
-
+        <section
+          className="
+            bg-white
+            border border-[#E5E7EB]
+            rounded-lg
+            overflow-hidden
+          "
+        >
+          <div
+            className="
+              h-11
+              px-4
+              flex items-center justify-between
+              border-b border-[#E5E7EB]
+            "
+          >
             <h2 className="text-[11px] font-semibold text-[#111827]">
               Recent Activity
             </h2>
@@ -132,71 +155,66 @@ export default function Dashboard() {
             <button className="text-[9px] text-[#0056B3]">
               View All
             </button>
-
           </div>
-
 
           <div className="px-4">
 
             {/* Activity 1 */}
             <div className="flex gap-3 py-4 border-b border-[#E5E7EB]">
-
-              <div className="
-                w-7 h-7 shrink-0
-                rounded-full
-                bg-[#D1FAE5]
-                text-[#10B981]
-                flex items-center justify-center
-                text-[12px]
-              ">
+              <div
+                className="
+                  w-7 h-7 shrink-0
+                  rounded-full
+                  bg-[#D1FAE5]
+                  text-[#10B981]
+                  flex items-center justify-center
+                  text-[12px]
+                "
+              >
                 ✓
               </div>
 
               <div>
-
                 <p className="text-[10px] text-[#111827]">
                   Safety_Manual_V2.pdf successfully analyzed.
                 </p>
 
                 <div className="flex items-center gap-2 mt-1">
-
-                  <span className="
-                    px-2 py-0.5
-                    rounded-full
-                    bg-[#D1FAE5]
-                    text-[#10B981]
-                    text-[7px]
-                  ">
+                  <span
+                    className="
+                      px-2 py-0.5
+                      rounded-full
+                      bg-[#D1FAE5]
+                      text-[#10B981]
+                      text-[7px]
+                    "
+                  >
                     High Confidence
                   </span>
 
                   <span className="text-[8px] text-[#1E293B]/50">
                     ◷ 2 mins ago
                   </span>
-
                 </div>
-
               </div>
-
             </div>
-
 
             {/* Activity 2 */}
             <div className="flex gap-3 py-4 border-b border-[#E5E7EB]">
-
-              <div className="
-                w-7 h-7 shrink-0
-                rounded-full
-                bg-[#FEE2E2]
-                text-[#EF4444]
-                flex items-center justify-center
-                text-[12px]
-              ">
+              <div
+                className="
+                  w-7 h-7 shrink-0
+                  rounded-full
+                  bg-[#FEE2E2]
+                  text-[#EF4444]
+                  flex items-center justify-center
+                  text-[12px]
+                "
+              >
                 !
               </div>
 
               <div>
-
                 <p className="text-[10px] text-[#111827]">
                   Tender_Ref_402.pdf flagged for manual review.
                 </p>
@@ -208,28 +226,25 @@ export default function Dashboard() {
                 <p className="text-[8px] text-[#1E293B]/50 mt-1">
                   ◷ 15 mins ago
                 </p>
-
               </div>
-
             </div>
-
 
             {/* Activity 3 */}
             <div className="flex gap-3 py-4">
-
-              <div className="
-                w-7 h-7 shrink-0
-                rounded-full
-                bg-[#DBEAFE]
-                text-[#0056B3]
-                flex items-center justify-center
-                text-[12px]
-              ">
+              <div
+                className="
+                  w-7 h-7 shrink-0
+                  rounded-full
+                  bg-[#DBEAFE]
+                  text-[#0056B3]
+                  flex items-center justify-center
+                  text-[12px]
+                "
+              >
                 ↻
               </div>
 
               <div className="flex-1">
-
                 <p className="text-[10px] text-[#111827]">
                   Batch processing started: Q3_Financial_Reports (45 files)
                 </p>
@@ -239,7 +254,6 @@ export default function Dashboard() {
                 </p>
 
                 <div className="mt-2">
-
                   <div className="h-1.5 bg-[#E5E7EB] rounded-full overflow-hidden">
                     <div className="h-full w-[45%] bg-[#0056B3] rounded-full" />
                   </div>
@@ -253,87 +267,83 @@ export default function Dashboard() {
                       45% Complete
                     </span>
                   </div>
-
                 </div>
-
               </div>
-
             </div>
 
           </div>
-
         </section>
-
 
         {/* Right Column */}
         <div className="space-y-4">
 
           {/* Quick Actions */}
-          <section className="
-            bg-[#002D62]
-            rounded-lg
-            p-4
-            text-white
-          ">
-
+          <section
+            className="
+              bg-[#002D62]
+              rounded-lg
+              p-4
+              text-white
+            "
+          >
             <h2 className="text-[11px] font-semibold mb-3">
               Quick Actions
             </h2>
 
             <div className="grid grid-cols-2 gap-2">
-
-              <button className="
-                h-12 rounded-md
-                bg-white/10 hover:bg-white/20
-                text-[8px] font-medium
-              ">
+              <button
+                className="
+                  h-12 rounded-md
+                  bg-white/10 hover:bg-white/20
+                  text-[8px] font-medium
+                "
+              >
                 <div className="text-[13px] mb-1">↥</div>
                 Upload New
               </button>
 
-              <button className="
-                h-12 rounded-md
-                bg-white/10 hover:bg-white/20
-                text-[8px] font-medium
-              ">
+              <button
+                className="
+                  h-12 rounded-md
+                  bg-white/10 hover:bg-white/20
+                  text-[8px] font-medium
+                "
+              >
                 <div className="text-[13px] mb-1">⌕</div>
                 Search Docs
               </button>
 
-              <button className="
-                col-span-2 h-11
-                rounded-md
-                bg-white/10 hover:bg-white/20
-                text-[8px] font-medium
-              ">
+              <button
+                className="
+                  col-span-2 h-11
+                  rounded-md
+                  bg-white/10 hover:bg-white/20
+                  text-[8px] font-medium
+                "
+              >
                 <div className="text-[13px] mb-1">▣</div>
                 Generate Report
               </button>
-
             </div>
-
           </section>
 
-
           {/* Distribution */}
-          <section className="
-            bg-white
-            border border-[#E5E7EB]
-            rounded-lg
-            p-4
-          ">
-
+          <section
+            className="
+              bg-white
+              border border-[#E5E7EB]
+              rounded-lg
+              p-4
+            "
+          >
             <h2 className="text-[11px] font-semibold text-[#111827] mb-4">
               Document Distribution
             </h2>
 
             <div className="space-y-3">
-
               {distribution.map(([name, value, color]) => (
                 <div key={name}>
-
                   <div className="flex justify-between mb-1">
-
                     <span className="text-[8px] text-[#1E293B]">
                       <span
                         className="inline-block w-1.5 h-1.5 rounded-full mr-1"
@@ -345,11 +355,9 @@ export default function Dashboard() {
                     <span className="text-[8px] text-[#1E293B]/60">
                       {value}%
                     </span>
-
                   </div>
 
                   <div className="h-1.5 bg-[#E5E7EB] rounded-full overflow-hidden">
-
                     <div
                       className="h-full rounded-full"
                       style={{
@@ -357,27 +365,22 @@ export default function Dashboard() {
                         backgroundColor: color,
                       }}
                     />
-
                   </div>
-
                 </div>
               ))}
-
             </div>
-
           </section>
 
-
           {/* Storage */}
-          <section className="
-            bg-white
-            border border-[#E5E7EB]
-            rounded-lg
-            p-4
-          ">
-
+          <section
+            className="
+              bg-white
+              border border-[#E5E7EB]
+              rounded-lg
+              p-4
+            "
+          >
             <div className="flex justify-between">
-
               <h2 className="text-[11px] font-semibold text-[#111827]">
                 Storage Usage
               </h2>
@@ -385,7 +388,6 @@ export default function Dashboard() {
               <span className="text-[#64748B]">
                 ♧
               </span>
-
             </div>
 
             <p className="text-[13px] font-semibold text-[#111827] mt-3">
@@ -402,11 +404,9 @@ export default function Dashboard() {
             <p className="text-right text-[7px] text-[#1E293B]/50 mt-2">
               24% Used
             </p>
-
           </section>
 
         </div>
-
       </div>
 
     </main>
