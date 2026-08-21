@@ -9,5 +9,5 @@
    pymupdf
    pdf2image
    pillow
-   google-generativeai
+   google-genai
    groq

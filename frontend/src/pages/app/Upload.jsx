@@ -5,6 +5,7 @@ import {
   FileImage,
   ExternalLink,
 } from "lucide-react";
+import axios from "axios";
 
 const recentUploads = [
   {
@@ -31,13 +32,25 @@ const recentUploads = [
 ];
 
 function Upload() {
-  const handleFileChange = (event) => {
-    const file = event.target.files[0];
+  const handleFileChange = async (event) => {
+  const file = event.target.files[0];
 
-    if (file) {
-      console.log("Selected file:", file);
-    }
-  };
+  if (!file) return;
+
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await axios.post(
+      "http://127.0.0.1:8000/documents/upload",
+      formData
+    );
+
+    console.log("Upload successful:", response.data);
+  } catch (error) {
+    console.error("Upload failed:", error);
+  }
+};
 
   return (
     <div className="min-h-full bg-[#fafbff] px-5 py-5">

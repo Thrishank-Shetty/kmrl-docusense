@@ -1,11 +1,10 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
+from app.ingestion.router import router as ingestion_router
+from app.compliance.router import router as compliance_router
+from app.nlp.router import router as nlp_router
 from app.database import Base, engine
-
-
-
 
 app = FastAPI()
 
@@ -21,7 +20,9 @@ app.add_middleware(
 
 Base.metadata.create_all(bind=engine)
 
-
+app.include_router(ingestion_router, prefix="/documents", tags=["Ingestion"])
+app.include_router(compliance_router)
+app.include_router(nlp_router)
 
 
 
