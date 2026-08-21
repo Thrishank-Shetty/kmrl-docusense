@@ -9,6 +9,7 @@ class Document(Base):
     filename=Column(String)
     raw_text=Column(Text)
     doc_type=Column(String,nullable=True)
+    summary=Column(Text,nullable=True)
     entities=Column(JSON)
     upload_date=Column(DateTime,default=datetime.now)
     extraction_confidence = Column(String)

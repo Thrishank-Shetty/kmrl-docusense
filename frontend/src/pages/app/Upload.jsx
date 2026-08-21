@@ -170,6 +170,11 @@ function Upload() {
               <p className="text-[10px] font-semibold text-[#062f5c]">
                 Type: {extraction.document.doc_type || "Unclassified"}
               </p>
+               {extraction.document.summary && (
+      <p className="mt-1 text-[9px] text-slate-600">
+        {extraction.document.summary}
+      </p>
+    )}
               {extraction.risk.has_deadline ? (
                 <p className="mt-1 text-[9px] text-slate-600">
                   Deadline: {String(extraction.risk.deadline_date)} · Urgency:{" "}
