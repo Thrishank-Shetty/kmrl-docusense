@@ -1,56 +1,86 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   UploadCloud,
   Check,
   FileText,
-  FileImage,
-  ExternalLink,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
-import axios from "axios";
-
-const recentUploads = [
-  {
-    name: "Station_Report_01.pdf",
-    date: "Today, 10:42 AM",
-    size: "2.4 MB",
-    status: "Processed",
-    type: "pdf",
-  },
-  {
-    name: "Tender_Ref_402.jpg",
-    date: "Yesterday, 03:15 PM",
-    size: "1.1 MB",
-    status: "Processed",
-    type: "image",
-  },
-  {
-    name: "Contract_A_V2.pdf",
-    date: "Oct 12, 2023",
-    size: "5.6 MB",
-    status: "Success",
-    type: "pdf",
-  },
-];
+import { uploadDocument, extractDocument } from "../../lib/api";
 
 function Upload() {
+  const navigate = useNavigate();
+
+  // status: idle | uploading | uploaded | extracting | done | error
+  const [status, setStatus] = useState("idle");
+  const [error, setError] = useState(null);
+  const [result, setResult] = useState(null); // { document_id, raw_text, confidence }
+  const [extraction, setExtraction] = useState(null); // { document, risk }
+  const [uploadedFiles, setUploadedFiles] = useState([]); // session history
+
   const handleFileChange = async (event) => {
-  const file = event.target.files[0];
+    const file = event.target.files[0];
+    if (!file) return;
 
-  if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+      setError("Only PDF files are supported right now.");
+      setStatus("error");
+      return;
+    }
 
-  try {
-    const formData = new FormData();
-    formData.append("file", file);
+    setStatus("uploading");
+    setError(null);
+    setResult(null);
+    setExtraction(null);
 
-    const response = await axios.post(
-      "http://127.0.0.1:8000/documents/upload",
-      formData
-    );
+    try {
+      const response = await uploadDocument(file);
+      setResult(response.data);
+      setStatus("uploaded");
+      setUploadedFiles((prev) => [
+        {
+          name: file.name,
+          size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+          date: new Date().toLocaleString(),
+          document_id: response.data.document_id,
+          status: "Uploaded",
+        },
+        ...prev,
+      ]);
+    } catch (err) {
+      console.error("Upload failed:", err);
+      setStatus("error");
+      setError(
+        err.response?.data?.detail ||
+          "Upload failed. Check that the backend is running."
+      );
+    }
+  };
 
-    console.log("Upload successful:", response.data);
-  } catch (error) {
-    console.error("Upload failed:", error);
-  }
-};
+  const handleRunExtraction = async () => {
+    if (!result?.document_id) return;
+    setStatus("extracting");
+    setError(null);
+    try {
+      const response = await extractDocument(result.document_id);
+      setExtraction(response.data);
+      setStatus("done");
+      setUploadedFiles((prev) =>
+        prev.map((f) =>
+          f.document_id === result.document_id
+            ? { ...f, status: "Processed" }
+            : f
+        )
+      );
+    } catch (err) {
+      console.error("Extraction failed:", err);
+      setStatus("error");
+      setError(
+        err.response?.data?.detail || "NLP extraction failed."
+      );
+    }
+  };
 
   return (
     <div className="min-h-full bg-[#fafbff] px-5 py-5">
@@ -60,31 +90,10 @@ function Upload() {
           <h1 className="text-[24px] font-bold leading-tight text-[#061f3d]">
             Upload & Analyze Document
           </h1>
-
           <p className="mt-1 text-[11px] text-slate-500">
             Upload a KMRL document and let AI extract structured information
             automatically.
           </p>
-        </div>
-
-        {/* Processed Documents */}
-        <div className="flex h-[38px] items-center gap-2 rounded-md border border-slate-200 bg-white px-3">
-          <div>
-            <p className="text-[7px] font-medium uppercase tracking-wide text-slate-500">
-              Processed
-            </p>
-
-            <p className="text-[11px] font-bold leading-3 text-[#003b73]">
-              11,936{" "}
-              <span className="font-medium text-slate-600">documents</span>
-            </p>
-          </div>
-
-          <Check
-            size={13}
-            strokeWidth={2.5}
-            className="text-[#00766f]"
-          />
         </div>
       </div>
 
@@ -96,125 +105,139 @@ function Upload() {
         <input
           id="document-upload"
           type="file"
-          accept=".pdf,.png,.jpg,.jpeg"
+          accept=".pdf"
           className="hidden"
           onChange={handleFileChange}
+          disabled={status === "uploading" || status === "extracting"}
         />
 
-        {/* Upload Icon */}
         <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#eef4ff]">
-          <UploadCloud
-            size={23}
-            strokeWidth={1.8}
-            className="text-[#0056a6]"
-          />
+          {status === "uploading" || status === "extracting" ? (
+            <Loader2 size={23} strokeWidth={1.8} className="text-[#0056a6] animate-spin" />
+          ) : (
+            <UploadCloud size={23} strokeWidth={1.8} className="text-[#0056a6]" />
+          )}
         </div>
 
         <h2 className="text-[14px] font-semibold text-[#062f5c]">
-          Upload your document
+          {status === "uploading"
+            ? "Uploading..."
+            : status === "extracting"
+            ? "Running NLP extraction..."
+            : "Upload your document"}
         </h2>
 
         <p className="mt-1 text-[10px] text-slate-500">
-          Drag and drop a PDF, scanned document, or image here
+          Drag and drop a PDF here
         </p>
 
-        {/* Browse Button */}
         <span className="mt-4 rounded-md bg-[#003b73] px-5 py-2 text-[10px] font-semibold text-white shadow-sm transition group-hover:bg-[#064b8c]">
           Browse Files
         </span>
 
-        <p className="mt-2.5 text-[8px] text-slate-400">
-          PDF • PNG • JPG • JPEG (Max 25MB)
-        </p>
+        <p className="mt-2.5 text-[8px] text-slate-400">PDF only (backend limitation)</p>
       </label>
 
-      {/* Recent Uploads */}
-      <section className="mt-4 overflow-hidden rounded-md border border-slate-200 bg-white">
-        {/* Section Header */}
-        <div className="flex h-[39px] items-center justify-between border-b border-slate-200 bg-[#fafbff] px-3.5">
-          <h2 className="text-[10px] font-semibold text-[#062f5c]">
-            Recent Uploads
-          </h2>
-
-          <button className="text-[8px] font-medium text-[#0056a6] hover:underline">
-            VIEW ALL
-          </button>
+      {/* Error state */}
+      {status === "error" && error && (
+        <div className="mt-3 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[10px] text-red-700">
+          <AlertCircle size={14} />
+          {error}
         </div>
+      )}
 
-        {/* Table Header */}
-        <div className="grid grid-cols-[1.7fr_1fr_0.55fr_0.7fr_0.35fr] border-b border-slate-200 bg-[#fcfcfd] px-3.5 py-2">
-          <span className="text-[7px] font-medium uppercase tracking-wide text-slate-500">
-            Document Name
-          </span>
+      {/* Success state + next action */}
+      {result && status !== "error" && (
+        <div className="mt-3 rounded-md border border-green-200 bg-green-50 px-3.5 py-3">
+          <div className="flex items-center gap-2 text-[11px] font-semibold text-green-800">
+            <Check size={14} /> Uploaded — Document #{result.document_id}
+          </div>
+          <p className="mt-1 text-[9px] text-green-700">
+            OCR confidence: {(result.confidence * 100).toFixed(1)}%
+          </p>
 
-          <span className="text-[7px] font-medium uppercase tracking-wide text-slate-500">
-            Date Uploaded
-          </span>
+          {status === "uploaded" && (
+            <button
+              onClick={handleRunExtraction}
+              className="mt-2 rounded-md bg-[#003b73] px-4 py-1.5 text-[10px] font-semibold text-white hover:bg-[#064b8c]"
+            >
+              Run NLP Extraction
+            </button>
+          )}
 
-          <span className="text-[7px] font-medium uppercase tracking-wide text-slate-500">
-            Size
-          </span>
-
-          <span className="text-[7px] font-medium uppercase tracking-wide text-slate-500">
-            Status
-          </span>
-
-          <span className="text-[7px] font-medium uppercase tracking-wide text-slate-500">
-            Actions
-          </span>
-        </div>
-
-        {/* Rows */}
-        {recentUploads.map((file) => (
-          <div
-            key={file.name}
-            className="grid min-h-[41px] grid-cols-[1.7fr_1fr_0.55fr_0.7fr_0.35fr] items-center border-b border-slate-200 px-3.5 last:border-b-0"
-          >
-            {/* Document */}
-            <div className="flex items-center gap-2">
-              {file.type === "pdf" ? (
-                <FileText
-                  size={14}
-                  strokeWidth={1.8}
-                  className="text-red-500"
-                />
+          {status === "done" && extraction && (
+            <div className="mt-3 border-t border-green-200 pt-3">
+              <p className="text-[10px] font-semibold text-[#062f5c]">
+                Type: {extraction.document.doc_type || "Unclassified"}
+              </p>
+              {extraction.risk.has_deadline ? (
+                <p className="mt-1 text-[9px] text-slate-600">
+                  Deadline: {String(extraction.risk.deadline_date)} · Urgency:{" "}
+                  <span className="font-semibold">{extraction.risk.urgency}</span>
+                </p>
               ) : (
-                <FileImage
-                  size={14}
-                  strokeWidth={1.8}
-                  className="text-blue-500"
-                />
+                <p className="mt-1 text-[9px] text-slate-500">No compliance deadline detected.</p>
               )}
-
-              <span className="text-[9px] font-medium text-[#173a61]">
-                {file.name}
-              </span>
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={() => navigate("/compliance")}
+                  className="rounded-md border border-[#003b73] px-3 py-1.5 text-[9px] font-semibold text-[#003b73] hover:bg-[#eef4ff]"
+                >
+                  View in Compliance
+                </button>
+                <button
+                  onClick={() => navigate("/documents")}
+                  className="rounded-md border border-[#003b73] px-3 py-1.5 text-[9px] font-semibold text-[#003b73] hover:bg-[#eef4ff]"
+                >
+                  View in Documents
+                </button>
+              </div>
             </div>
+          )}
+        </div>
+      )}
 
-            {/* Date */}
-            <span className="text-[8px] text-slate-500">
-              {file.date}
-            </span>
+      {/* Recent Uploads (this session) */}
+      <section className="mt-4 overflow-hidden rounded-md border border-slate-200 bg-white">
+        <div className="flex h-[39px] items-center justify-between border-b border-slate-200 bg-[#fafbff] px-3.5">
+          <h2 className="text-[10px] font-semibold text-[#062f5c]">Recent Uploads</h2>
+        </div>
 
-            {/* Size */}
-            <span className="text-[8px] text-slate-500">
-              {file.size}
-            </span>
+        <div className="grid grid-cols-[1.7fr_1fr_0.7fr_0.7fr] border-b border-slate-200 bg-[#fcfcfd] px-3.5 py-2">
+          <span className="text-[7px] font-medium uppercase tracking-wide text-slate-500">Document</span>
+          <span className="text-[7px] font-medium uppercase tracking-wide text-slate-500">Uploaded</span>
+          <span className="text-[7px] font-medium uppercase tracking-wide text-slate-500">Size</span>
+          <span className="text-[7px] font-medium uppercase tracking-wide text-slate-500">Status</span>
+        </div>
 
-            {/* Status */}
-            <div>
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#e8f0ed] px-2 py-0.5 text-[7px] font-medium text-[#315b50]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#40806d]" />
+        {uploadedFiles.length === 0 ? (
+          <div className="px-3.5 py-6 text-center text-[9px] text-slate-400">
+            No documents uploaded this session yet.
+          </div>
+        ) : (
+          uploadedFiles.map((file) => (
+            <div
+              key={file.document_id}
+              className="grid min-h-[41px] grid-cols-[1.7fr_1fr_0.7fr_0.7fr] items-center border-b border-slate-200 px-3.5 last:border-b-0"
+            >
+              <div className="flex items-center gap-2">
+                <FileText size={14} strokeWidth={1.8} className="text-red-500" />
+                <span className="text-[9px] font-medium text-[#173a61]">{file.name}</span>
+              </div>
+              <span className="text-[8px] text-slate-500">{file.date}</span>
+              <span className="text-[8px] text-slate-500">{file.size}</span>
+              <span
+                className={`inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[7px] font-medium ${
+                  file.status === "Processed"
+                    ? "bg-[#e8f0ed] text-[#315b50]"
+                    : "bg-blue-50 text-blue-700"
+                }`}
+              >
                 {file.status}
               </span>
             </div>
-
-            {/* Action */}
-            <button className="flex items-center justify-center text-slate-500 hover:text-[#0056a6]">
-              <ExternalLink size={12} strokeWidth={1.8} />
-            </button>
-          </div>
-        ))}
+          ))
+        )}
       </section>
     </div>
   );
