@@ -11,3 +11,4 @@
    pillow
    google-genai
    groq
+   pytesseract

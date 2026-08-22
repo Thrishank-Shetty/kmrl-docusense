@@ -1,6 +1,6 @@
-import easyocr
-import numpy as np
 
+import pytesseract
+import numpy as np
 
 from .file_utils import (
     is_scanned_pdf,
@@ -9,33 +9,15 @@ from .file_utils import (
 )
 
 
-
-reader = easyocr.Reader(['en'])
-
-
 def run_ocr(image):
     image = np.array(image)
 
-    results = reader.readtext(image)
+    text = pytesseract.image_to_string(
+        image,
+        lang="eng+mal"
+    )
 
-    text_parts = []
-    confidence_scores = []
-
-    for result in results:
-        detected_text = result[1]
-        confidence = result[2]
-
-        text_parts.append(detected_text)
-        confidence_scores.append(confidence)
-
-    text = " ".join(text_parts)
-
-    if confidence_scores:
-        average_confidence = sum(confidence_scores) / len(confidence_scores)
-    else:
-        average_confidence = 0
-
-    return text, average_confidence
+    return text, 1.0
 
 
 def process_document(file_path):
