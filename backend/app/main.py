@@ -4,6 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.ingestion.router import router as ingestion_router
 from app.compliance.router import router as compliance_router
 from app.nlp.router import router as nlp_router
+from app.search.router import router as search_router
+from app.chatbot.router import router as chatbot_router
 from app.documents.router import router as documents_router
 from app.database import Base, engine
 
