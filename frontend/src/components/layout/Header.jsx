@@ -3,7 +3,6 @@ import {Bell, Menu, Search, CircleHelp, X} from 'lucide-react';
 
 export default function Header() {
 const [query, setQuery] = useState('');
-const [mobileNavOpen, setMobileNavOpen] = useState(false);  
 return (
     // <header className="h-16 w-full flex items-center bg-white border-b border-[#E5E7EB]">
 
@@ -91,7 +90,7 @@ return (
           <div className="flex items-center gap-3">
             <button
               className="hidden max-[720px]:grid"
-              onClick={() => setMobileNavOpen(true)}
+              // onClick={() => setMobileNavOpen(true)}
             >
               <Menu size={21} />
             </button>
@@ -115,11 +114,11 @@ return (
           </div>
 
           <div className="flex items-center gap-4 max-[720px]:gap-[7px]">
-            <button className="max-[720px]:hidden">
+            <button title="Notifications coming soon" className="text-slate-500 transition hover:text-[#0056B3]">
               <Bell size={19} />
             </button>
 
-            <button>
+            <button title="Help coming soon" className="text-slate-500 transition hover:text-[#0056B3]">
               <CircleHelp size={19} />
             </button>
 

@@ -99,9 +99,19 @@ export default function Compliance() {
         </div>
 
         {upcoming.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
-            <CheckCircle className="text-green-500" size={20} />
-            <p className="text-[10px] text-slate-500">No upcoming compliance risks.</p>
+          <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-50">
+              <CheckCircle className="text-green-500" size={20} />
+            </div>
+
+            <p className="text-[11px] font-semibold text-slate-700">
+              No upcoming compliance risks
+            </p>
+
+            <p className="max-w-[280px] text-[9px] text-slate-400">
+              Your processed documents currently have no upcoming
+              compliance deadlines.
+            </p>
           </div>
         ) : (
           <div className="divide-y divide-[#E5E7EB]">
