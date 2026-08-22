@@ -4,7 +4,18 @@ import json
 from app.nlp.llm_client import call_llm
 from app.nlp.prompts import EXTRACTION_PROMPT
 
-
+ALLOWED_DOC_TYPES = {
+    "Invoices",
+    "Contracts",
+    "Compliance / Safety Certificates",
+    "Purchase Orders",
+    "Maintenance Reports",
+    "HR Documents",
+    "Memos / Circulars",
+    "Vendor Correspondence",
+    "Engineering Drawings / Specs",
+    "Others",
+}
 def extract_document_data(document_text: str) -> dict:
     """
     Extract structured information from document text using the LLM.
@@ -43,5 +54,10 @@ def extract_document_data(document_text: str) -> dict:
         raise ValueError(
             f"LLM returned invalid JSON:\n{response}"
         ) from error
+
+    doc_type = result.get("doc_type")
+
+    if doc_type not in ALLOWED_DOC_TYPES:
+        result["doc_type"] = "Others"
 
     return result
