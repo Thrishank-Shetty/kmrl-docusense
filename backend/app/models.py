@@ -17,6 +17,7 @@ class Document(Base):
         "ComplianceItem",
         back_populates="document"
     )
+    status = Column(String, default="pending")
 
 class ComplianceItem(Base):
     __tablename__="compliance_item"
