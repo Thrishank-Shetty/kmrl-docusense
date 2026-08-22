@@ -25,7 +25,7 @@ const departments = [
 
 const kpis = [
   ['Total Processed', '14,208', '+12.5%', 'file', true],
-  ['Avg Confidence Score', '94.8%', '+0.3%', 'confidence', true],
+  ['Compliance Score', '94.8%', '+0.3%', 'confidence', true],
   ['Avg Processing Time', '1.2s', '-0.1s', 'time', false],
   ['Manual Review Required', '4.2%', '-1.5%', 'review', true],
 ];
