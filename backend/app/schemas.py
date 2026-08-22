@@ -11,6 +11,7 @@ class DocumentResponse(BaseModel):
     summary:str | None=None  
     entities:dict
     upload_date:datetime 
+    extraction_confidence: float | None = None
 
 class ComplianceItemResponse(BaseModel):
     model_config=ConfigDict(from_attributes=True)
