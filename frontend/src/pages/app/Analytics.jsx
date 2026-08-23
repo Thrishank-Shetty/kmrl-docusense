@@ -1,138 +1,416 @@
-import { useMemo, useState } from 'react';
-import {CalendarDays, Check, ChevronDown,ClipboardCheck, Clock3, Download,FileText, Filter, Gavel,MoreVertical,TrendingDown, TrendingUp,} from 'lucide-react';
-
-const departments = [
-  ['Procurement', '5,240', '96.2%', '2.1%', 'Optimal'],
-  ['Human Resources', '3,105', '94.5%', '4.5%', 'Optimal'],
-  ['Legal', '1,890', '88.4%', '12.3%', 'Review Needed'],
-  ['Finance', '3,973', '98.1%', '1.2%', 'Optimal'],
-];
-
-// const navItems = [
-//   ['Dashboard', LayoutDashboard],
-//   ['Documents', FileText],
-//   ['Upload', Upload],
-//   ['AI Search', FileBarChart],
-//   ['Compliance', Gavel],
-//   ['Analytics', BarChart3],
-//   ['Activity', Activity],
-// ];
-
-const kpis = [
-  ['Total Processed', '14,208', '+12.5%', 'file', true],
-  ['Compliance Score', '94.8%', '+0.3%', 'confidence', true],
-  ['Avg Processing Time', '1.2s', '-0.1s', 'time', false],
-  ['Manual Review Required', '4.2%', '-1.5%', 'review', true],
-];
-
-const chartBars = [42, 62, 48, 82, 70, 94, 88];
+import { useEffect, useState } from "react";
+import {
+  CalendarDays,
+  Check,
+  ChevronDown,
+  Download,
+  FileText,
+  Filter,
+  Gavel,
+  MoreVertical,
+  TrendingDown,
+  TrendingUp,
+  AlertTriangle,
+  BarChart3,
+  Clock3,
+  RefreshCw,
+} from "lucide-react";
+import { getAnalyticsSummary } from "../../lib/api";
+import { useToast } from "../../components/common/useToast";
 
 const icons = {
   file: FileText,
-  confidence: ClipboardCheck,
+  confidence: Check,
   time: Clock3,
   review: Gavel,
 };
 
 export default function Analytics() {
-  const [query] = useState('');
-  const [range, setRange] = useState('Last 30 Days');
+  const { showToast } = useToast();
+
+  const [analytics, setAnalytics] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+
+  const [range, setRange] = useState("Last 30 Days");
   const [rangeOpen, setRangeOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [exported, setExported] = useState(false);
 
+  // ---------------------------------------------------------
+  // LOAD ANALYTICS
+  // ---------------------------------------------------------
 
-  const filtered = useMemo(
-    () => departments.filter(([name]) =>
-      name.toLowerCase().includes(query.toLowerCase())
-    ),
-    [query]
-  );
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchAnalytics = async () => {
+      try {
+        const response = await getAnalyticsSummary();
+
+        if (!cancelled) {
+          setAnalytics(response.data);
+        }
+      } catch (err) {
+        console.error(err);
+
+        if (!cancelled) {
+          setError(
+            err.response?.data?.detail ||
+              "Failed to load analytics."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchAnalytics();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // ---------------------------------------------------------
+  // REFRESH
+  // ---------------------------------------------------------
+
+  const refreshAnalytics = async () => {
+    setRefreshing(true);
+    setError(null);
+
+    try {
+      const response = await getAnalyticsSummary();
+
+      setAnalytics(response.data);
+      showToast("Analytics refreshed");
+    } catch (err) {
+      console.error(err);
+
+      const message =
+        err.response?.data?.detail ||
+        "Failed to refresh analytics.";
+
+      setError(message);
+      showToast(message, "error");
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // ---------------------------------------------------------
+  // EXPORT
+  // ---------------------------------------------------------
 
   const exportReport = () => {
     setExported(true);
-    setTimeout(() => setExported(false), 2200);
+
+    setTimeout(() => {
+      setExported(false);
+    }, 2200);
+
+    showToast(
+      "Report export will be available soon.",
+      "info"
+    );
   };
 
-  return (
-    <div className="min-h-screen flex bg-[#f7f9fd] text-[#13213a]">
-      {/* MAIN */}
-      <div className="ml-[20px] flex-1 min-w-0 max-[960px]:ml-[200px] max-[720px]:ml-0">
-        <main className="px-7 pb-[26px] max-w-[1110px] mx-auto max-[960px]:px-5 max-[720px]:px-4">
+  // ---------------------------------------------------------
+  // HELPERS
+  // ---------------------------------------------------------
 
-          {/* HEADER */}
-          <section className="flex justify-between items-end gap-6 py-[2px] pb-[21px] max-[720px]:block max-[720px]:pt-[19px]">
-            <div>
-              {/* <p className="mb-2 text-[#4a78ae] text-[9px] font-extrabold tracking-[.13em]">
-                OPERATIONS INTELLIGENCE / {activeNav.toUpperCase()}
-              </p> */}
+  const formatWeek = (week) => {
+    if (!week) return "";
 
-              <h1 className="text-[30px] leading-[1.14] text-[#10264c] tracking-[-.9px] max-[430px]:text-[26px]">
-                <b>Analytics Overview</b>
-              </h1>
+    const date = new Date(`${week}T00:00:00`);
 
-              <p className="mt-2 text-[#4d5868] text-[13px] max-[430px]:text-[12px]">
-                Deep insights into extraction trends and operational efficiency.
-              </p>
-            </div>
+    if (Number.isNaN(date.getTime())) {
+      return week;
+    }
 
-            <div className="flex gap-[13px] mt-[17px]">
-              <div className="relative">
+    return date.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+    });
+  };
+
+  const getUrgencyClass = (urgency) => {
+    const value = urgency?.toLowerCase();
+
+    if (value === "critical") {
+      return "bg-red-50 text-red-600";
+    }
+
+    if (value === "high") {
+      return "bg-orange-50 text-orange-600";
+    }
+
+    if (value === "medium") {
+      return "bg-yellow-50 text-yellow-600";
+    }
+
+    return "bg-green-50 text-green-600";
+  };
+
+  // ---------------------------------------------------------
+  // LOADING
+  // ---------------------------------------------------------
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#f7f9fd] px-7 py-6">
+        <div className="mx-auto max-w-[1110px]">
+          <div className="h-8 w-64 animate-pulse rounded bg-slate-200" />
+
+          <div className="mt-2 h-4 w-96 animate-pulse rounded bg-slate-200" />
+
+          <div className="mt-6 grid grid-cols-4 gap-5 max-[720px]:grid-cols-2">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div
+                key={index}
+                className="h-[116px] animate-pulse rounded-lg border border-slate-200 bg-white"
+              />
+            ))}
+          </div>
+
+          <div className="mt-5 grid grid-cols-[2.1fr_1.1fr] gap-5 max-[960px]:grid-cols-1">
+            <div className="h-[340px] animate-pulse rounded-lg border border-slate-200 bg-white" />
+
+            <div className="h-[340px] animate-pulse rounded-lg border border-slate-200 bg-white" />
+          </div>
+
+          <div className="mt-5 h-[300px] animate-pulse rounded-lg border border-slate-200 bg-white" />
+        </div>
+      </div>
+    );
+  }
+
+  // ---------------------------------------------------------
+  // ERROR
+  // ---------------------------------------------------------
+
+  if (error || !analytics) {
+    return (
+      <div className="min-h-screen bg-[#f7f9fd] px-7 py-6">
+        <div className="mx-auto max-w-[1110px]">
+          <h1 className="text-[30px] font-bold text-[#10264c]">
+            Analytics Overview
+          </h1>
+
+          <div className="mt-5 rounded-lg border border-red-200 bg-red-50 p-5">
+            <div className="flex items-start gap-3">
+              <AlertTriangle
+                size={20}
+                className="mt-0.5 text-red-500"
+              />
+
+              <div>
+                <p className="text-[12px] font-bold text-red-800">
+                  Unable to load analytics
+                </p>
+
+                <p className="mt-1 text-[10px] text-red-700">
+                  {error || "No analytics data available."}
+                </p>
+
                 <button
-                  onClick={() => setRangeOpen(!rangeOpen)}
-                  className="h-[38px] flex items-center gap-2 px-[13px] border border-[#9aa6b8] rounded-[7px] bg-white text-[13px] font-bold"
+                  onClick={refreshAnalytics}
+                  disabled={refreshing}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-1.5 text-[9px] font-semibold text-white hover:bg-red-700 disabled:opacity-60"
                 >
-                  <CalendarDays size={18} />
-                  {range}
-                  <ChevronDown
-                    size={16}
-                    className={rangeOpen ? 'rotate-180' : ''}
+                  <RefreshCw
+                    size={12}
+                    className={
+                      refreshing ? "animate-spin" : ""
+                    }
                   />
+
+                  Try Again
                 </button>
-
-                {rangeOpen && (
-                  <div className="absolute right-0 top-[44px] z-10 min-w-[158px] p-[5px] bg-white border border-[#cbd4e2] rounded-lg shadow-lg">
-                    {['Last 7 Days', 'Last 30 Days', 'Last 90 Days'].map(option => (
-                      <button
-                        key={option}
-                        onClick={() => {
-                          setRange(option);
-                          setRangeOpen(false);
-                        }}
-                        className="w-full flex justify-between px-[10px] py-[9px] text-[12px] hover:bg-[#edf4ff]"
-                      >
-                        {option}
-                        {range === option && <Check size={15} />}
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
-
-              <button
-                onClick={exportReport}
-                className="h-[38px] flex items-center gap-2 px-[13px] border border-[#142f59] rounded-[7px] bg-white text-[13px] font-bold"
-              >
-                <Download size={17} />
-                {exported ? 'Report Ready' : 'Export Report'}
-              </button>
             </div>
-          </section>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-          {/* KPI CARDS */}
-          <section className="grid grid-cols-4 gap-5 mb-5 max-[960px]:gap-3 max-[720px]:grid-cols-2">
-            {kpis.map(([label, value, change, icon, positive]) => {
+  // ---------------------------------------------------------
+  // KPI DATA
+  // ---------------------------------------------------------
+
+  const kpis = [
+    [
+      "Total Processed",
+      analytics.total_processed ?? 0,
+      null,
+      "file",
+      true,
+    ],
+    [
+      "Compliance Score",
+      `${analytics.compliance_score ?? 0}%`,
+      null,
+      "confidence",
+      true,
+    ],
+    [
+      "Documents This Week",
+      analytics.documents_this_week ?? 0,
+      null,
+      "time",
+      true,
+    ],
+    [
+      "Manual Review Required",
+      analytics.manual_review_required ?? 0,
+      null,
+      "review",
+      false,
+    ],
+  ];
+
+  const documentTypes = analytics.doc_type_counts || [];
+  const urgencyCounts = analytics.urgency_counts || [];
+  const volumeByWeek = analytics.volume_by_week || [];
+
+  const maxVolume = Math.max(
+    ...volumeByWeek.map((item) => item.count),
+    1
+  );
+
+  const maxUrgency = Math.max(
+    ...urgencyCounts.map((item) => item.count),
+    1
+  );
+
+  // ---------------------------------------------------------
+  // MAIN UI
+  // ---------------------------------------------------------
+
+  return (
+    <div className="min-h-screen bg-[#f7f9fd] text-[#13213a]">
+      <main className="mx-auto max-w-[1110px] px-7 pb-[26px] max-[960px]:px-5 max-[720px]:px-4">
+        {/* HEADER */}
+        <section className="flex items-end justify-between gap-6 py-[2px] pb-[21px] max-[720px]:block max-[720px]:pt-[19px]">
+          <div>
+            <h1 className="text-[30px] leading-[1.14] tracking-[-.9px] text-[#10264c] max-[430px]:text-[26px]">
+              <b>Analytics Overview</b>
+            </h1>
+
+            <p className="mt-2 text-[13px] text-[#4d5868] max-[430px]:text-[12px]">
+              Deep insights into extraction trends and operational
+              efficiency.
+            </p>
+          </div>
+
+          <div className="mt-[17px] flex gap-[13px]">
+            {/* RANGE */}
+            <div className="relative">
+              <button
+                onClick={() => setRangeOpen(!rangeOpen)}
+                className="flex h-[38px] items-center gap-2 rounded-[7px] border border-[#9aa6b8] bg-white px-[13px] text-[13px] font-bold"
+              >
+                <CalendarDays size={18} />
+
+                {range}
+
+                <ChevronDown
+                  size={16}
+                  className={
+                    rangeOpen ? "rotate-180" : ""
+                  }
+                />
+              </button>
+
+              {rangeOpen && (
+                <div className="absolute right-0 top-[44px] z-20 min-w-[158px] rounded-lg border border-[#cbd4e2] bg-white p-[5px] shadow-lg">
+                  {[
+                    "Last 7 Days",
+                    "Last 30 Days",
+                    "Last 90 Days",
+                  ].map((option) => (
+                    <button
+                      key={option}
+                      onClick={() => {
+                        setRange(option);
+                        setRangeOpen(false);
+
+                        if (option !== "Last 30 Days") {
+                          showToast(
+                            "The backend currently provides 30-day analytics.",
+                            "info"
+                          );
+                        }
+                      }}
+                      className="flex w-full justify-between px-[10px] py-[9px] text-left text-[12px] hover:bg-[#edf4ff]"
+                    >
+                      {option}
+
+                      {range === option && (
+                        <Check size={15} />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* REFRESH */}
+            <button
+              onClick={refreshAnalytics}
+              disabled={refreshing}
+              className="flex h-[38px] items-center gap-2 rounded-[7px] border border-[#142f59] bg-white px-[13px] text-[13px] font-bold disabled:opacity-60"
+            >
+              <RefreshCw
+                size={17}
+                className={
+                  refreshing ? "animate-spin" : ""
+                }
+              />
+
+              {refreshing ? "Refreshing..." : "Refresh"}
+            </button>
+
+            {/* EXPORT */}
+            <button
+              onClick={exportReport}
+              className="flex h-[38px] items-center gap-2 rounded-[7px] border border-[#142f59] bg-white px-[13px] text-[13px] font-bold"
+            >
+              <Download size={17} />
+
+              {exported
+                ? "Report Ready"
+                : "Export Report"}
+            </button>
+          </div>
+        </section>
+
+        {/* KPI CARDS */}
+        <section className="mb-5 grid grid-cols-4 gap-5 max-[960px]:gap-3 max-[720px]:grid-cols-2">
+          {kpis.map(
+            ([label, value, change, icon, positive]) => {
               const Icon = icons[icon];
-              const good = positive || change.startsWith('-');
-              const Trend = good ? TrendingUp : TrendingDown;
+
+              const good =
+                positive || change?.startsWith("-");
+
+              const Trend = good
+                ? TrendingUp
+                : TrendingDown;
 
               return (
                 <article
                   key={label}
-                  className="bg-white border border-[#cbd2df] rounded-lg p-[15px_14px_13px] min-h-[116px] max-[720px]:min-h-[121px] max-[430px]:px-[11px]"
+                  className="min-h-[116px] rounded-lg border border-[#cbd2df] bg-white p-[15px_14px_13px] max-[720px]:min-h-[121px] max-[430px]:px-[11px]"
                 >
-                  <div className="flex justify-between text-[#4e5662] text-[11px] font-semibold mb-[17px]">
+                  <div className="mb-[17px] flex justify-between text-[11px] font-semibold text-[#4e5662]">
                     {label}
+
                     <span className="text-[#0861c7]">
                       <Icon size={19} />
                     </span>
@@ -142,215 +420,369 @@ export default function Analytics() {
                     {value}
                   </strong>
 
-                  <div className={`flex items-center gap-1 mt-[9px] text-[10px] ${good ? 'text-[#27c69a]' : 'text-[#db3d45]'}`}>
-                    <Trend size={14} />
-                    <b>{change}</b>
-                    <span className="text-[#4f596a]">vs last month</span>
-                  </div>
+                  {change ? (
+                    <div
+                      className={`mt-[9px] flex items-center gap-1 text-[10px] ${
+                        good
+                          ? "text-[#27c69a]"
+                          : "text-[#db3d45]"
+                      }`}
+                    >
+                      <Trend size={14} />
+                      <b>{change}</b>
+                      <span className="text-[#4f596a]">
+                        vs last month
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="mt-[9px] text-[9px] text-[#7b8493]">
+                      Current system value
+                    </div>
+                  )}
                 </article>
               );
-            })}
-          </section>
+            }
+          )}
+        </section>
 
-          {/* CHARTS */}
-          <section className="grid grid-cols-[2.1fr_1.1fr] gap-5 mb-5 max-[960px]:grid-cols-1 max-[720px]:gap-3">
-
-            {/* EXTRACTION CHART */}
-            <div className="bg-white border border-[#cbd2df] rounded-lg p-5 relative">
-              <div className="flex justify-between items-center mb-[18px]">
+        {/* CHARTS */}
+        <section className="mb-5 grid grid-cols-[2.1fr_1.1fr] gap-5 max-[960px]:grid-cols-1 max-[720px]:gap-3">
+          {/* VOLUME */}
+          <div className="relative rounded-lg border border-[#cbd2df] bg-white p-5">
+            <div className="mb-[18px] flex items-center justify-between">
+              <div>
                 <h2 className="text-[17px] font-semibold text-[#15233b]">
                   Extraction Volume Trends
                 </h2>
 
-                <button onClick={() => setMenuOpen(!menuOpen)}>
-                  <MoreVertical size={19} />
-                </button>
+                <p className="mt-1 text-[9px] text-slate-400">
+                  Documents processed by week.
+                </p>
               </div>
 
-              {menuOpen && (
-                <div className="absolute right-5 top-[68px] z-10 bg-white border rounded-lg shadow-lg p-1 min-w-[158px]">
-                  <button className="w-full text-left p-2 text-xs hover:bg-[#edf4ff]">
-                    View details
-                  </button>
-                  <button className="w-full text-left p-2 text-xs hover:bg-[#edf4ff]">
-                    Compare period
-                  </button>
-                </div>
-              )}
+              <button
+                onClick={() => setMenuOpen(!menuOpen)}
+                className="text-slate-500 hover:text-slate-800"
+              >
+                <MoreVertical size={19} />
+              </button>
+            </div>
 
-              <div className="h-[224px] rounded-[7px] border border-[#d4dced] bg-[#f0f3fd] relative overflow-hidden max-[720px]:h-[205px]">
+            {menuOpen && (
+              <div className="absolute right-5 top-[68px] z-10 min-w-[158px] rounded-lg border bg-white p-1 shadow-lg">
+                <button className="w-full p-2 text-left text-xs hover:bg-[#edf4ff]">
+                  View details
+                </button>
 
+                <button className="w-full p-2 text-left text-xs hover:bg-[#edf4ff]">
+                  Compare period
+                </button>
+              </div>
+            )}
+
+            {volumeByWeek.length === 0 ? (
+              <div className="grid h-[224px] place-items-center rounded-[7px] border border-[#d4dced] bg-[#f0f3fd] text-[10px] text-slate-400">
+                No volume data available.
+              </div>
+            ) : (
+              <div className="relative h-[224px] overflow-hidden rounded-[7px] border border-[#d4dced] bg-[#f0f3fd] px-4 pb-8 pt-5">
+                {/* Grid */}
                 <div className="absolute inset-[19px_14px_32px] flex flex-col justify-between">
-                  {[1, 2, 3, 4].map(i => (
-                    <span key={i} className="h-px bg-[#dbe2f0]" />
-                  ))}
-                </div>
-
-                <div className="absolute inset-[22px_14px_15px] flex items-end gap-[6px]">
-                  {chartBars.map((height, i) => (
-                    <div
-                      key={height}
-                      className="flex-1 bg-[#214f82] rounded-t-[4px]"
-                      style={{
-                        height: `${height}%`,
-                        opacity: 0.34 + i * 0.09,
-                      }}
+                  {[1, 2, 3, 4].map((i) => (
+                    <span
+                      key={i}
+                      className="h-px bg-[#dbe2f0]"
                     />
                   ))}
                 </div>
 
-                <svg
-                  className="absolute inset-[20px_0_15px] w-full h-[calc(100%-35px)] z-[2]"
-                  viewBox="0 0 760 250"
-                  preserveAspectRatio="none"
-                >
-                  <defs>
-                    <linearGradient id="chartFill" x1="0" x2="0" y1="0" y2="1">
-                      <stop offset="0%" stopColor="#1464c0" stopOpacity=".24" />
-                      <stop offset="100%" stopColor="#1464c0" stopOpacity="0" />
-                    </linearGradient>
-                  </defs>
+                {/* Bars */}
+                <div className="absolute inset-[22px_14px_30px] flex items-end gap-[7px]">
+                  {volumeByWeek.map((item) => (
+                    <div
+                      key={item.week}
+                      className="group relative flex h-full flex-1 items-end"
+                    >
+                      <div
+                        className="w-full rounded-t-[4px] bg-[#214f82] transition hover:bg-[#1262c2]"
+                        style={{
+                          height: `${Math.max(
+                            (item.count / maxVolume) *
+                              100,
+                            5
+                          )}%`,
+                        }}
+                        title={`${formatWeek(
+                          item.week
+                        )}: ${item.count}`}
+                      />
+                    </div>
+                  ))}
+                </div>
 
-                  <path
-                    d="M0 176 C85 125 128 137 190 145 S290 158 350 122 S438 95 500 42 S602 38 650 78 S716 98 760 138 L760 250 L0 250 Z"
-                    fill="url(#chartFill)"
-                  />
-
-                  <path
-                    d="M0 176 C85 125 128 137 190 145 S290 158 350 122 S438 95 500 42 S602 38 650 78 S716 98 760 138"
-                    fill="none"
-                    stroke="#1262c2"
-                    strokeWidth="3.5"
-                    strokeLinecap="round"
-                  />
-                </svg>
-
-                <div className="absolute left-[17px] right-[17px] bottom-[5px] flex justify-between text-[#7d8796] text-[9px]">
-                  <span>May 01</span>
-                  <span>May 08</span>
-                  <span>May 15</span>
-                  <span>May 22</span>
-                  <span>May 30</span>
+                {/* Labels */}
+                <div className="absolute bottom-[6px] left-[14px] right-[14px] flex justify-between gap-2 overflow-hidden text-[8px] text-[#7d8796]">
+                  {volumeByWeek.map((item) => (
+                    <span
+                      key={item.week}
+                      className="min-w-0 flex-1 truncate text-center"
+                    >
+                      {formatWeek(item.week)}
+                    </span>
+                  ))}
                 </div>
               </div>
-            </div>
+            )}
+          </div>
 
-            {/* DOCUMENT TYPES */}
-            <div className="bg-white border border-[#cbd2df] rounded-lg p-5">
-              <div className="flex justify-between items-center mb-[18px]">
+          {/* DOCUMENT TYPES */}
+          <div className="rounded-lg border border-[#cbd2df] bg-white p-5">
+            <div className="mb-[18px] flex items-center justify-between">
+              <div>
                 <h2 className="text-[17px] font-semibold text-[#15233b]">
                   Document Types
                 </h2>
-                <button>
-                  <Filter size={18} />
-                </button>
+
+                <p className="mt-1 text-[9px] text-slate-400">
+                  Distribution of processed documents.
+                </p>
               </div>
 
-              <div className="h-[148px] grid place-items-center">
-                <div className="w-[138px] h-[138px] rounded-full grid place-items-center relative bg-[conic-gradient(#0c2244_0_45%,#1369c6_45%_75%,#50d5a4_75%_100%)]">
-                  <div className="absolute w-[95px] h-[95px] bg-white rounded-full" />
+              <Filter size={18} />
+            </div>
 
-                  <div className="relative z-10 flex flex-col items-center gap-[3px]">
-                    <strong className="text-[13px]">Invoices</strong>
-                    <span className="text-[11px] text-[#566276]">
-                      45%
-                    </span>
+            {documentTypes.length === 0 ? (
+              <div className="grid h-[220px] place-items-center text-[10px] text-slate-400">
+                No document type data available.
+              </div>
+            ) : (
+              <div className="flex items-center gap-6 max-[500px]:flex-col">
+                {/* DONUT */}
+                <div className="relative h-[165px] w-[165px] shrink-0">
+                  <div
+                    className="h-full w-full rounded-full"
+                    style={{
+                      background: `conic-gradient(${documentTypes
+                        .map((item, index, arr) => {
+                          const colors = [
+                            "#0c2244",
+                            "#1369c6",
+                            "#50d5a4",
+                            "#f5b94c",
+                            "#8b5cf6",
+                            "#ef6c6c",
+                          ];
+
+                          const start = arr
+                            .slice(0, index)
+                            .reduce(
+                              (sum, current) =>
+                                sum + Number(current.percentage || 0),
+                              0
+                            );
+
+                          const end =
+                            start + Number(item.percentage || 0);
+
+                          const color =
+                            colors[index % colors.length];
+
+                          return `${color} ${start}% ${end}%`;
+                        })
+                        .join(", ")})`,
+                    }}
+                  >
+                    <div className="absolute inset-[20px] flex flex-col items-center justify-center rounded-full bg-white">
+                      <strong className="text-[20px] text-[#15233b]">
+                        {analytics.total_processed}
+                      </strong>
+
+                      <span className="text-[9px] text-slate-400">
+                        Documents
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="flex flex-col gap-[10px] pt-[11px]">
-                {[
-                  ['Invoices', '45%', '#0c2244'],
-                  ['Contracts', '30%', '#1369c6'],
-                  ['Compliance', '25%', '#50d5a4'],
-                ].map(([label, value, color]) => (
-                  <div key={label} className="flex justify-between text-[12px]">
-                    <span className="flex items-center gap-2">
-                      <i
-                        className="w-[10px] h-[10px] rounded-full"
-                        style={{ background: color }}
-                      />
-                      {label}
-                    </span>
-                    <b>{value}</b>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
+                {/* LEGEND */}
+                <div className="min-w-0 flex-1 space-y-3">
+                  {documentTypes.map((item, index) => {
+                    const colors = [
+                      "#0c2244",
+                      "#1369c6",
+                      "#50d5a4",
+                      "#f5b94c",
+                      "#8b5cf6",
+                      "#ef6c6c",
+                    ];
 
-          {/* DEPARTMENT TABLE */}
-          <section className="bg-white border border-[#cbd2df] rounded-lg p-5 pb-[14px]">
-            <div className="flex justify-between items-center mb-[18px]">
+                    return (
+                      <div
+                        key={item.type}
+                        className="flex items-center justify-between gap-3"
+                      >
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span
+                            className="h-2.5 w-2.5 shrink-0 rounded-full"
+                            style={{
+                              backgroundColor:
+                                colors[index % colors.length],
+                            }}
+                          />
+
+                          <span className="truncate text-[10px] font-semibold text-slate-600">
+                            {item.type}
+                          </span>
+                        </div>
+
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span className="text-[9px] text-slate-400">
+                            {item.count}
+                          </span>
+
+                          <span className="text-[10px] font-bold text-slate-700">
+                            {item.percentage}%
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* URGENCY */}
+        <section className="mb-5 rounded-lg border border-[#cbd2df] bg-white p-5">
+          <div className="mb-5 flex items-center justify-between">
+            <div>
               <h2 className="text-[17px] font-semibold text-[#15233b]">
-                Departmental Efficiency Comparison
+                Compliance Urgency
               </h2>
 
-              <button className="text-[#0062c6] text-[13px] font-bold hover:underline">
-                View All Departments
-              </button>
+              <p className="mt-1 text-[9px] text-slate-400">
+                Current compliance items grouped by urgency.
+              </p>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[650px] border-collapse">
-                <thead>
-                  <tr>
-                    {['Department', 'Volume (MTD)', 'Avg Confidence', 'Exceptions', 'Status'].map(h => (
-                      <th
-                        key={h}
-                        className="bg-[#eef2fc] text-[#4e5a70] text-[10px] font-semibold text-left px-[13px] py-2"
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
+            <Gavel size={19} className="text-[#0861c7]" />
+          </div>
 
-                <tbody>
-                  {filtered.map(([name, volume, confidence, exceptions, status]) => (
-                    <tr key={name} className="hover:bg-[#f8faff]">
-                      <td className="px-[13px] py-[9px] text-[12px] font-semibold">
-                        {name}
-                      </td>
+          {urgencyCounts.length === 0 ? (
+            <div className="rounded-md bg-green-50 px-4 py-8 text-center">
+              <Check
+                size={22}
+                className="mx-auto text-green-500"
+              />
 
-                      <td className="px-[13px] py-[9px] text-[12px]">
-                        {volume}
-                      </td>
+              <p className="mt-2 text-[10px] font-semibold text-green-700">
+                No compliance items found.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4 max-[720px]:grid-cols-1">
+              {urgencyCounts.map((item) => (
+                <div
+                  key={item.urgency}
+                  className="rounded-md border border-slate-100 bg-[#fafbff] p-3"
+                >
+                  <div className="mb-2 flex items-center justify-between">
+                    <span
+                      className={`rounded-full px-2 py-1 text-[8px] font-bold capitalize ${getUrgencyClass(
+                        item.urgency
+                      )}`}
+                    >
+                      {item.urgency}
+                    </span>
 
-                      <td className="px-[13px] py-[9px] text-[12px]">
-                        {confidence}
-                      </td>
+                    <span className="text-[12px] font-bold text-slate-700">
+                      {item.count}
+                    </span>
+                  </div>
 
-                      <td className="px-[13px] py-[9px] text-[12px]">
-                        {exceptions}
-                      </td>
+                  <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                    <div
+                      className="h-full rounded-full bg-[#1369c6]"
+                      style={{
+                        width: `${Math.max(
+                          (item.count / maxUrgency) *
+                            100,
+                          5
+                        )}%`,
+                      }}
+                    />
+                  </div>
 
-                      <td className="px-[13px] py-[9px]">
-                        <span
-                          className={`rounded-[12px] px-2 py-1 text-[9px] font-bold ${
-                            status === 'Optimal'
-                              ? 'text-[#087e63] bg-[#cff6e8]'
-                              : 'text-[#ad2525] bg-[#ffd7d5]'
-                          }`}
-                        >
-                          {status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              {!filtered.length && (
-                <div className="text-center text-[#667085] text-xs p-6">
-                  No departments match “{query}”.
+                  <p className="mt-1 text-[8px] text-slate-400">
+                    {item.count} compliance item
+                    {item.count === 1 ? "" : "s"}
+                  </p>
                 </div>
-              )}
+              ))}
             </div>
-          </section>
-        </main>
-      </div>
+          )}
+        </section>
+
+        {/* SUMMARY */}
+        <section className="rounded-lg border border-[#cbd2df] bg-white p-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
+              <BarChart3
+                size={18}
+                className="text-[#0861c7]"
+              />
+            </div>
+
+            <div>
+              <h2 className="text-[14px] font-semibold text-[#15233b]">
+                Analytics Summary
+              </h2>
+
+              <p className="mt-1 text-[9px] text-slate-400">
+                Current metrics are retrieved directly from
+                the document processing system.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-3 gap-3 max-[720px]:grid-cols-1">
+            <div className="rounded-md bg-[#f7f9fd] p-3">
+              <p className="text-[8px] uppercase tracking-wide text-slate-400">
+                Document Types
+              </p>
+
+              <p className="mt-1 text-[18px] font-bold text-[#14213a]">
+                {documentTypes.length}
+              </p>
+            </div>
+
+            <div className="rounded-md bg-[#f7f9fd] p-3">
+              <p className="text-[8px] uppercase tracking-wide text-slate-400">
+                Compliance Items
+              </p>
+
+              <p className="mt-1 text-[18px] font-bold text-[#14213a]">
+                {urgencyCounts.reduce(
+                  (total, item) =>
+                    total + Number(item.count || 0),
+                  0
+                )}
+              </p>
+            </div>
+
+            <div className="rounded-md bg-[#f7f9fd] p-3">
+              <p className="text-[8px] uppercase tracking-wide text-slate-400">
+                Weeks Tracked
+              </p>
+
+              <p className="mt-1 text-[18px] font-bold text-[#14213a]">
+                {volumeByWeek.length}
+              </p>
+            </div>
+          </div>
+        </section>
+      </main>
     </div>
   );
 }
