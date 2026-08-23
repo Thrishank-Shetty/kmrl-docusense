@@ -5,6 +5,7 @@ from sqlalchemy.orm import relationship
 
 class Document(Base):
     __tablename__="documents"
+
     id=Column(Integer,primary_key=True,index=True)
     filename=Column(String)
     raw_text=Column(Text)
@@ -12,27 +13,29 @@ class Document(Base):
     summary=Column(Text,nullable=True)
     entities=Column(JSON)
     upload_date=Column(DateTime,default=datetime.now)
-    extraction_confidence = Column(String)
-
     queue_position=Column(Integer,nullable=True)
+
     compliance=relationship(
         "ComplianceItem",
         back_populates="document"
     )
 
-    change_history = relationship(
-        "DocumentChange",
     status=Column(String,default="pending")
     file_hash=Column(String,unique=True,nullable=False,index=True)
     extraction_confidence=Column(Float,nullable=True)
     human_verified=Column(Boolean,default=False,nullable=False)
+
     revisions=relationship(
         "DocumentRevision",
         back_populates="document",
         cascade="all, delete-orphan"
     )
 
-    status = Column(String, default="pending")
+    change_history=relationship(
+        "DocumentChange",
+        back_populates="document",
+        cascade="all, delete-orphan"
+    )
 
 class ComplianceItem(Base):
     __tablename__="compliance_item"
@@ -45,6 +48,23 @@ class ComplianceItem(Base):
     document=relationship(
         "Document",
         back_populates="compliance"
+    )
+
+
+class DocumentRevision(Base):
+    __tablename__="document_revisions"
+    id=Column(Integer,primary_key=True,index=True)
+    document_id=Column(Integer,ForeignKey("documents.id"),nullable=False)
+    revision_number=Column(Integer,nullable=False)
+    doc_type=Column(String,nullable=True)
+    summary=Column(Text,nullable=True)
+    entities=Column(JSON,nullable=True)
+    compliance_risk=Column(JSON,nullable=True)
+    created_at=Column(DateTime,default=datetime.now)
+    changed_by=Column(String,nullable=True)
+    document=relationship(
+        "Document",
+        back_populates="revisions"
     )
 
 class DocumentChange(Base):
@@ -77,19 +97,4 @@ class DocumentChange(Base):
     document = relationship(
         "Document",
         back_populates="change_history"
-
-class DocumentRevision(Base):
-    __tablename__="document_revisions"
-    id=Column(Integer,primary_key=True,index=True)
-    document_id=Column(Integer,ForeignKey("documents.id"),nullable=False)
-    revision_number=Column(Integer,nullable=False)
-    doc_type=Column(String,nullable=True)
-    summary=Column(Text,nullable=True)
-    entities=Column(JSON,nullable=True)
-    compliance_risk=Column(JSON,nullable=True)
-    created_at=Column(DateTime,default=datetime.now)
-    changed_by=Column(String,nullable=True)
-    document=relationship(
-        "Document",
-        back_populates="revisions"
     )
