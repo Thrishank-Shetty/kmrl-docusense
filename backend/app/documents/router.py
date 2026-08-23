@@ -2,8 +2,16 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Document, DocumentRevision, ComplianceItem,DocumentChange
-from app.schemas import DocumentUpdate,ComplianceItemUpdate
+from app.models import (
+    Document,
+    DocumentRevision,
+    ComplianceItem,
+    DocumentChange
+)
+from app.schemas import (
+    DocumentUpdate,
+    ComplianceItemUpdate
+)
 
 from app.compliance.risk_engine import calculate_risk
 
@@ -446,25 +454,29 @@ def update_compliance_item(
 
         risk = calculate_risk(risk_data)
 
-        compliance_item.deadline_date = risk[
-            "deadline_date"
-        ]
+        compliance_item.deadline_date = (
+            risk["deadline_date"]
+        )
 
-        compliance_item.risk_type = risk[
-            "risk_type"
-        ]
+        compliance_item.risk_type = (
+            risk["risk_type"]
+        )
 
-        compliance_item.urgency = risk[
-            "urgency"
-        ]
+        compliance_item.urgency = (
+            risk["urgency"]
+        )
 
     else:
 
         if update.risk_type is not None:
-            compliance_item.risk_type = update.risk_type
+            compliance_item.risk_type = (
+                update.risk_type
+            )
 
         if update.urgency is not None:
-            compliance_item.urgency = update.urgency
+            compliance_item.urgency = (
+                update.urgency
+            )
 
     db.commit()
     db.refresh(compliance_item)
@@ -508,46 +520,3 @@ def get_document_revisions(
     )
 
     return revisions
-
-@router.get("/documents/{document_id}/changes")
-def get_document_changes(
-    document_id: int,
-    db: Session = Depends(get_db)
-):
-    document = (
-        db.query(Document)
-        .filter(Document.id == document_id)
-        .first()
-    )
-
-    if document is None:
-        return {
-            "error": "Document not found"
-        }
-
-    changes = (
-        db.query(DocumentChange)
-        .filter(DocumentChange.document_id == document_id)
-        .order_by(DocumentChange.created_at.desc())
-        .all()
-    )
-
-    return {
-        "document_id": document_id,
-        "filename": document.filename,
-        "total_changes": len(changes),
-        "changes": [
-            {
-                "change_id": change.id,
-                "old_filename": change.old_filename,
-                "new_filename": change.new_filename,
-                "old_entities": change.old_entities,
-                "new_entities": change.new_entities,
-                "old_summary": change.old_summary,
-                "new_summary": change.new_summary,
-                "ai_summary": change.ai_summary,
-                "created_at": change.created_at
-            }
-            for change in changes
-        ]
-    }
