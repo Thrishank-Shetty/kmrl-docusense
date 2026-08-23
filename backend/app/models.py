@@ -13,10 +13,18 @@ class Document(Base):
     entities=Column(JSON)
     upload_date=Column(DateTime,default=datetime.now)
     extraction_confidence = Column(String)
+
     compliance=relationship(
         "ComplianceItem",
         back_populates="document"
     )
+
+    change_history = relationship(
+        "DocumentChange",
+        back_populates="document",
+        cascade="all, delete-orphan"
+    )
+
     status = Column(String, default="pending")
 
 class ComplianceItem(Base):
@@ -30,4 +38,36 @@ class ComplianceItem(Base):
     document=relationship(
         "Document",
         back_populates="compliance"
+    )
+
+class DocumentChange(Base):
+    __tablename__ = "document_changes"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    document_id = Column(
+        Integer,
+        ForeignKey("documents.id"),
+        nullable=False
+    )
+
+    old_filename = Column(String, nullable=True)
+    new_filename = Column(String, nullable=True)
+
+    old_entities = Column(JSON, nullable=True)
+    new_entities = Column(JSON, nullable=True)
+
+    old_summary = Column(Text, nullable=True)
+    new_summary = Column(Text, nullable=True)
+
+    ai_summary = Column(Text, nullable=True)
+
+    created_at = Column(
+        DateTime,
+        default=datetime.now
+    )
+
+    document = relationship(
+        "Document",
+        back_populates="change_history"
     )
