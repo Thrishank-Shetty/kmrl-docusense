@@ -1,18 +1,20 @@
-
 from datetime import date, datetime
 
 
-def calculate_risk(extracted_data: dict) -> dict:
+def calculate_risk(compliance_risk: dict) -> dict:
     """
-    Calculate compliance risk from extracted document data.
+    Calculate compliance risk for one compliance item.
     """
 
-    compliance_risk = extracted_data.get("compliance_risk", {})
+    has_deadline = compliance_risk.get(
+        "has_deadline",
+        False
+    )
 
-    has_deadline = compliance_risk.get("has_deadline", False)
-    deadline_date = compliance_risk.get("deadline_date")
+    deadline_date = compliance_risk.get(
+        "deadline_date"
+    )
 
-    # No deadline = no compliance risk
     if not has_deadline or not deadline_date:
         return {
             "has_deadline": False,
@@ -22,7 +24,6 @@ def calculate_risk(extracted_data: dict) -> dict:
             "urgency": "low",
         }
 
-    # Parse deadline
     try:
         deadline = datetime.strptime(
             deadline_date,
@@ -35,17 +36,17 @@ def calculate_risk(extracted_data: dict) -> dict:
             "deadline_date": deadline_date,
             "days_remaining": None,
             "risk_type": compliance_risk.get(
-                "risk_type",
-                "Unknown"
-            ),
+             "risk_type"
+                ) or "Unknown",
             "urgency": "low",
         }
 
     today = date.today()
 
-    days_remaining = (deadline - today).days
+    days_remaining = (
+        deadline - today
+    ).days
 
-    # Determine urgency
     if days_remaining < 0:
         urgency = "critical"
 
@@ -66,8 +67,7 @@ def calculate_risk(extracted_data: dict) -> dict:
         "deadline_date": deadline,
         "days_remaining": days_remaining,
         "risk_type": compliance_risk.get(
-            "risk_type",
-            "Compliance Deadline"
-        ),
+            "risk_type"
+            ) or "Compliance Deadline",
         "urgency": urgency,
     }

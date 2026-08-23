@@ -17,50 +17,48 @@ class ChatRequest(BaseModel):
     question: str
 
 
-@router.post("/ask")
+@router.post("/ask/{document_id}")
 def ask_question(
+    document_id: int,
     request: ChatRequest,
     db: Session = Depends(get_db)
 ):
-    # Get all uploaded documents
-    documents = db.query(Document).all()
+    # Get the requested document
+    document = db.query(Document).filter(
+        Document.id == document_id
+    ).first()
 
-    if not documents:
+    if not document:
         raise HTTPException(
             status_code=404,
-            detail="No documents found."
+            detail="Document not found."
         )
 
-    # Build context from uploaded documents
-    context_parts = []
-
-    for document in documents:
-        context_parts.append(
-            f"""
+    # Build context using only this document
+    context = f"""
 Document: {document.filename}
 
 Content:
 {document.raw_text}
 """
-        )
 
-    context = "\n\n".join(context_parts)
-
-    # Prompt for the existing LLM client
+    # Prompt for the LLM
     prompt = f"""
 You are a document assistant for KMRL DocuSense.
 
 Answer the user's question using ONLY the information
-present in the uploaded documents.
+present in the uploaded document.
 
-If the answer cannot be found in the documents,
+If the answer cannot be found in the document,
 say:
 
-"I could not find this information in the uploaded documents."
+"I could not find this information in the uploaded document."
+
+Do not invent or assume information.
 
 Give a clear and concise answer.
 
-Uploaded documents:
+Uploaded document:
 {context}
 
 User question:
@@ -72,6 +70,7 @@ Answer:
     # Call the existing LLM function
     try:
         answer = call_llm(prompt)
+
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -79,6 +78,7 @@ Answer:
         )
 
     return {
+        "document_id": document_id,
         "question": request.question,
         "answer": answer
     }
