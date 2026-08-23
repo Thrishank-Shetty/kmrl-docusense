@@ -1,5 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {FileText,Loader2,AlertCircle,ChevronDown,ChevronUp,RefreshCw,UploadCloud,Search,SlidersHorizontal,X,} from "lucide-react";
+import {
+  FileText,
+  Loader2,
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  RefreshCw,
+  UploadCloud,
+  Search,
+  SlidersHorizontal,
+  X,
+  Bot,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   getAllDocuments,
@@ -290,6 +302,15 @@ export default function Documents() {
   };
 
   // -------------------------
+  // Open document in AI Search
+  // -------------------------
+
+  const openInAiSearch = (e, documentId) => {
+    e.stopPropagation();
+    navigate(`/ai-search?documentId=${documentId}`);
+  };
+
+  // -------------------------
   // Loading state
   // -------------------------
 
@@ -309,12 +330,13 @@ export default function Documents() {
           {Array.from({ length: 6 }).map((_, index) => (
             <div
               key={index}
-              className="grid grid-cols-[1.6fr_1fr_1fr_0.8fr] gap-4 border-b px-3.5 py-3 last:border-b-0"
+              className="grid grid-cols-[1.6fr_1fr_1fr_0.8fr_0.35fr] gap-4 border-b px-3.5 py-3 last:border-b-0"
             >
               <div className="h-3 w-40 animate-pulse rounded bg-slate-200" />
               <div className="h-3 w-16 animate-pulse rounded bg-slate-200" />
               <div className="h-3 w-24 animate-pulse rounded bg-slate-200" />
               <div className="h-3 w-14 animate-pulse rounded bg-slate-200" />
+              <div className="h-3 w-5 animate-pulse rounded bg-slate-200" />
             </div>
           ))}
         </div>
@@ -533,7 +555,7 @@ export default function Documents() {
 
       {/* Table */}
       <section className="mt-3 overflow-hidden rounded-md border border-slate-200 bg-white">
-        <div className="grid grid-cols-[1.6fr_1fr_1fr_0.8fr] border-b border-slate-200 bg-[#fcfcfd] px-3.5 py-2">
+        <div className="grid grid-cols-[1.6fr_1fr_1fr_0.8fr_0.35fr] border-b border-slate-200 bg-[#fcfcfd] px-3.5 py-2">
           <span className="text-[7px] font-medium uppercase tracking-wide text-slate-500">
             Filename
           </span>
@@ -548,6 +570,10 @@ export default function Documents() {
 
           <span className="text-[7px] font-medium uppercase tracking-wide text-slate-500">
             Status
+          </span>
+
+          <span className="text-center text-[7px] font-medium uppercase tracking-wide text-slate-500">
+            AI
           </span>
         </div>
 
@@ -616,11 +642,12 @@ export default function Documents() {
                 key={doc.id}
                 className="border-b border-slate-200 last:border-b-0"
               >
-                <button
-                  onClick={() => toggleRow(doc.id)}
-                  className="grid w-full grid-cols-[1.6fr_1fr_1fr_0.8fr] items-center px-3.5 py-2.5 text-left transition hover:bg-[#fafbff]"
-                >
-                  <div className="flex min-w-0 items-center gap-2">
+                <div className="grid grid-cols-[1.6fr_1fr_1fr_0.8fr_0.35fr] items-center px-3.5 py-2.5">
+                  {/* Filename */}
+                  <button
+                    onClick={() => toggleRow(doc.id)}
+                    className="flex min-w-0 items-center gap-2 text-left transition hover:bg-[#fafbff]"
+                  >
                     {expandedId === doc.id ? (
                       <ChevronUp
                         size={12}
@@ -641,18 +668,21 @@ export default function Documents() {
                     <span className="truncate text-[9px] font-medium text-[#173a61]">
                       {doc.filename || "Unnamed document"}
                     </span>
-                  </div>
+                  </button>
 
+                  {/* Type */}
                   <span className="truncate text-[8px] text-slate-500">
                     {doc.doc_type || "Unknown"}
                   </span>
 
+                  {/* Uploaded */}
                   <span className="text-[8px] text-slate-500">
                     {validDate
                       ? uploadedDate.toLocaleString()
                       : "—"}
                   </span>
 
+                  {/* Status */}
                   <span>
                     <span
                       className={`inline-flex rounded-full px-2 py-0.5 text-[7px] font-semibold capitalize ${
@@ -670,7 +700,21 @@ export default function Documents() {
                       {status.replace("_", " ")}
                     </span>
                   </span>
-                </button>
+
+                  {/* AI Search */}
+                  <button
+                    type="button"
+                    title={`Open ${
+                      doc.filename || "document"
+                    } in AI Search`}
+                    onClick={(e) =>
+                      openInAiSearch(e, doc.id)
+                    }
+                    className="mx-auto flex h-7 w-7 items-center justify-center rounded-md text-[#3451D1] transition hover:bg-[#E8EEFF] hover:text-[#2440B8]"
+                  >
+                    <Bot size={15} />
+                  </button>
+                </div>
 
                 {/* Expanded details */}
                 {expandedId === doc.id && (
@@ -709,27 +753,32 @@ export default function Documents() {
                             </p>
 
                             <div className="space-y-1.5">
-                              {detail.compliance.map((item) => (
-                                <div
-                                  key={item.id}
-                                  className="rounded-md border border-slate-200 bg-white px-3 py-2 text-[9px] text-slate-600"
-                                >
-                                  <span className="font-semibold">
-                                    {item.risk_type || "Risk"}
-                                  </span>
+                              {detail.compliance.map(
+                                (item) => (
+                                  <div
+                                    key={item.id}
+                                    className="rounded-md border border-slate-200 bg-white px-3 py-2 text-[9px] text-slate-600"
+                                  >
+                                    <span className="font-semibold">
+                                      {item.risk_type ||
+                                        "Risk"}
+                                    </span>
 
-                                  {" — "}
+                                    {" — "}
 
-                                  Deadline{" "}
-                                  {item.deadline_date || "—"}
+                                    Deadline{" "}
+                                    {item.deadline_date ||
+                                      "—"}
 
-                                  {" — "}
+                                    {" — "}
 
-                                  <span className="font-medium">
-                                    {item.urgency || "Unknown"}
-                                  </span>
-                                </div>
-                              ))}
+                                    <span className="font-medium">
+                                      {item.urgency ||
+                                        "Unknown"}
+                                    </span>
+                                  </div>
+                                )
+                              )}
                             </div>
                           </div>
                         ) : (

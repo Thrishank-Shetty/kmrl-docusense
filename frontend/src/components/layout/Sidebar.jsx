@@ -20,7 +20,7 @@ const navItems = [
   ["AI Search", FileBarChart, "/ai-search"],
   ["Compliance", Gavel, "/compliance"],
   ["Analytics", BarChart3, "/analytics"],
-  ["Activity", Activity, "/activity"],
+  ["Manual Review", Activity, "/review"],
 ];
 
 export default function Sidebar() {

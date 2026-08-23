@@ -1,10 +1,19 @@
 import { useState } from "react";
-import {Search,Sparkles,FileText,FolderOpen,ArrowRight,Loader2,X,} from "lucide-react";
-import { useParams } from "react-router-dom";
-import api from "../../lib/api";
+import {
+  Search,
+  Sparkles,
+  FileText,
+  FolderOpen,
+  ArrowRight,
+  Loader2,
+  X,
+} from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { askDocument } from "../../lib/api";
 
 export default function AISearch() {
-  const { documentId } = useParams();
+  const [searchParams] = useSearchParams();
+  const documentId = searchParams.get("documentId");
 
   const [query, setQuery] = useState("");
   const [answer, setAnswer] = useState("");
@@ -26,11 +35,9 @@ export default function AISearch() {
     setAnswer("");
 
     try {
-      const response = await api.post(
-        `/chatbot/ask/${documentId}`,
-        {
-          question: query.trim(),
-        }
+      const response = await askDocument(
+        documentId,
+        query.trim()
       );
 
       setAnswer(
@@ -147,7 +154,9 @@ export default function AISearch() {
                 ? "Generating response..."
                 : searched
                 ? "Search complete"
-                : "Ready"}
+                : documentId
+                ? `Document #${documentId} selected`
+                : "No document selected"}
             </span>
           </div>
         </section>

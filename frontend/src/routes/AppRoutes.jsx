@@ -4,7 +4,7 @@ import Register from "../pages/auth/Register"
 
 import AppLayout from "../components/layout/AppLayout";
 import Dashboard from "../pages/app/Dashboard";
-import Activity from "../pages/app/Activity";
+import ManualReview from "../pages/app/ManualReview";
 import AiSearch from "../pages/app/AiSearch";
 import Analytics from "../pages/app/Analytics";
 import Compliance from "../pages/app/Compliance";
@@ -31,8 +31,8 @@ export default function AppRoutes(){
                     <Route path="/documents" element={<Documents />} />
                     {/* <Route path="/documents/:id" element={<DocumentDetails />} /> */}
                     <Route path="/compliance" element={<Compliance />} />
-                    <Route path="/activity" element={<Activity/>}/>
-                    <Route path="/ai-search" element={<AiSearch/>}/>
+                    <Route path="/review" element={<ManualReview/>}/>
+                    <Route path="/ai-search" element={<AiSearch />} />
                     <Route path="/analytics" element={<Analytics/>}/>
                     <Route path="/settings" element={<Settings/>}/>
                 </Route>

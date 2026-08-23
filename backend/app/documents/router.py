@@ -2,8 +2,17 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Document, DocumentChange, DocumentRevision, ComplianceItem
-from app.schemas import DocumentUpdate, ComplianceItemUpdate
+from app.models import (
+    Document,
+    DocumentRevision,
+    ComplianceItem,
+    DocumentChange
+)
+from app.schemas import (
+    DocumentUpdate,
+    ComplianceItemUpdate
+)
+
 from app.compliance.risk_engine import calculate_risk
 
 
@@ -445,25 +454,29 @@ def update_compliance_item(
 
         risk = calculate_risk(risk_data)
 
-        compliance_item.deadline_date = risk[
-            "deadline_date"
-        ]
+        compliance_item.deadline_date = (
+            risk["deadline_date"]
+        )
 
-        compliance_item.risk_type = risk[
-            "risk_type"
-        ]
+        compliance_item.risk_type = (
+            risk["risk_type"]
+        )
 
-        compliance_item.urgency = risk[
-            "urgency"
-        ]
+        compliance_item.urgency = (
+            risk["urgency"]
+        )
 
     else:
 
         if update.risk_type is not None:
-            compliance_item.risk_type = update.risk_type
+            compliance_item.risk_type = (
+                update.risk_type
+            )
 
         if update.urgency is not None:
-            compliance_item.urgency = update.urgency
+            compliance_item.urgency = (
+                update.urgency
+            )
 
     db.commit()
     db.refresh(compliance_item)

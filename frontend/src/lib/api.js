@@ -13,20 +13,20 @@ export default api;
 // --- Documents / Ingestion ---
 export const uploadDocument = (file) => {
   const formData = new FormData();
-  formData.append("file", file);
+  formData.append("files", file);
   return api.post("/documents/upload", formData);
 };
 
 export const getDocumentQueue = () =>
-  api.get("/document/queue");
+  api.get("/documents/queue");
 
 // --- NLP ---
 export const extractDocument = (documentId) =>
   api.post(`/nlp/extract/${documentId}`);
 
 // --- AI Search / Chatbot ---
-export const askDocuments = (question) =>
-  api.post("/chatbot/ask", {
+export const askDocument = (documentId, question) =>
+  api.post(`/chatbot/ask/${documentId}`, {
     question,
   });
 
@@ -46,3 +46,9 @@ export const getDocumentCompliance = (documentId) =>
 // --- Analytics ---
 export const getAnalyticsSummary = () =>
   api.get("/analytics/summary");
+
+export const getReviewRequiredDocuments = () =>
+  api.get("/documents/review-required");
+
+export const verifyDocument = (documentId) =>
+  api.post(`/documents/${documentId}/verify`);
