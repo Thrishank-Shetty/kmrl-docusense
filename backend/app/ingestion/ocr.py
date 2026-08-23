@@ -1,3 +1,5 @@
+import os
+
 import pytesseract
 import numpy as np
 import cv2
@@ -82,31 +84,74 @@ def run_ocr(image):
     return final_text, average_confidence
 
 
+def extract_docx_text(file_path):
+    from docx import Document as DocxDocument
+
+    document = DocxDocument(file_path)
+
+    paragraphs = []
+
+    for paragraph in document.paragraphs:
+        if paragraph.text.strip():
+            paragraphs.append(paragraph.text)
+
+    return "\n".join(paragraphs)
+
+
 def process_document(file_path):
 
-    if not is_scanned_pdf(file_path):
+    extension = os.path.splitext(file_path)[1].lower()
 
-        text = extract_text_native(file_path)
+    # --------------------------------------------------
+    # DOCX
+    # --------------------------------------------------
+    if extension == ".docx":
+        text = extract_docx_text(file_path)
 
         return {
             "raw_text": text,
             "confidence": 1.0
         }
 
-    images = pdf_to_images(file_path)
+    # --------------------------------------------------
+    # PDF
+    # --------------------------------------------------
+    if extension == ".pdf":
 
-    all_text = []
-    all_confidences = []
+        if not is_scanned_pdf(file_path):
 
-    for image in images:
+            text = extract_text_native(file_path)
 
-        text, confidence = run_ocr(image)
+            return {
+                "raw_text": text,
+                "confidence": 1.0
+            }
 
-        all_text.append(text)
-        all_confidences.append(confidence)
+        images = pdf_to_images(file_path)
 
-    raw_text = "\n".join(all_text)
+        all_text = []
+        all_confidences = []
 
+        for image in images:
+
+            text, confidence = run_ocr(image)
+
+            all_text.append(text)
+            all_confidences.append(confidence)
+
+        raw_text = "\n".join(all_text)
+
+        if all_confidences:
+            average_confidence = (
+                sum(all_confidences) / len(all_confidences)
+            )
+        else:
+            average_confidence = 0
+
+        return {
+            "raw_text": raw_text,
+            "confidence": average_confidence
+        }
     if all_confidences:
         average_confidence = (
             sum(all_confidences) / len(all_confidences)
@@ -114,7 +159,9 @@ def process_document(file_path):
     else:
         average_confidence = 0.0
 
-    return {
-        "raw_text": raw_text,
-        "confidence": average_confidence
-    }
+    # --------------------------------------------------
+    # UNSUPPORTED FORMAT
+    # --------------------------------------------------
+    raise ValueError(
+        f"Unsupported document format: {extension}"
+    )

@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.openapi.utils import get_openapi
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 
@@ -14,6 +15,36 @@ from app.database import Base, engine
 
 
 app = FastAPI()
+
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    schema = get_openapi(
+        title="FastAPI",
+        version="0.1.0",
+        routes=app.routes,
+    )
+
+    for component in schema.get("components", {}).get("schemas", {}).values():
+        for prop in component.get("properties", {}).values():
+
+            if prop.get("contentMediaType") == "application/octet-stream":
+                del prop["contentMediaType"]
+                prop["format"] = "binary"
+
+            items = prop.get("items", {})
+
+            if items.get("contentMediaType") == "application/octet-stream":
+                del items["contentMediaType"]
+                items["format"] = "binary"
+
+    app.openapi_schema = schema
+    return app.openapi_schema
+
+
+app.openapi = custom_openapi
 
 
 app.add_middleware(
@@ -44,6 +75,7 @@ app.include_router(documents_router, tags=["Documents"])
 
 @app.get("/health")
 def health():
+    return {"status": "ok"}
     return {"status": "ok"}
 
 
