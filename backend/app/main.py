@@ -8,6 +8,7 @@ from app.search.router import router as search_router
 from app.chatbot.router import router as chatbot_router
 from app.analytics.router import router as analytics_router
 from app.documents.router import router as documents_router
+
 from app.database import Base, engine
 
 

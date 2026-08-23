@@ -19,6 +19,9 @@ def extract(document_id: int, db: Session = Depends(get_db)):
     document.doc_type = extracted.get("doc_type")
     document.entities = extracted.get("entities")
     document.summary = extracted.get("summary")
+    document.extraction_confidence = extracted.get("extraction_confidence")
+    document.human_verified = False
+    
 
     if risk["has_deadline"]:
         compliance_item = ComplianceItem(

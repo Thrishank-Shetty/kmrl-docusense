@@ -75,12 +75,13 @@ def analytics_summary(db: Session = Depends(get_db)):
     # 4. MANUAL REVIEW REQUIRED
     # ---------------------------------------------------------
     #
-    # Temporary placeholder.
-    # This will be replaced with the Human-in-the-Loop
-    # review logic later.
-    #
-
-    manual_review_required = 0
+    manual_review_required = db.query(
+    func.count(Document.id)
+).filter(
+    Document.extraction_confidence.isnot(None),
+    Document.extraction_confidence < 0.70,
+    Document.human_verified == False
+).scalar() or 0
 
     # ---------------------------------------------------------
     # 5. DOCUMENT TYPE COUNTS
