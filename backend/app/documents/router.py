@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Document
+from app.models import Document , DocumentChange
 
 
 router = APIRouter()
@@ -86,4 +86,46 @@ def check_duplicate(
     return {
         "duplicate": False,
         "reference_number": reference_number
+    }
+@router.get("/documents/{document_id}/changes")
+def get_document_changes(
+    document_id: int,
+    db: Session = Depends(get_db)
+):
+    document = (
+        db.query(Document)
+        .filter(Document.id == document_id)
+        .first()
+    )
+
+    if document is None:
+        return {
+            "error": "Document not found"
+        }
+
+    changes = (
+        db.query(DocumentChange)
+        .filter(DocumentChange.document_id == document_id)
+        .order_by(DocumentChange.created_at.desc())
+        .all()
+    )
+
+    return {
+        "document_id": document_id,
+        "filename": document.filename,
+        "total_changes": len(changes),
+        "changes": [
+            {
+                "change_id": change.id,
+                "old_filename": change.old_filename,
+                "new_filename": change.new_filename,
+                "old_entities": change.old_entities,
+                "new_entities": change.new_entities,
+                "old_summary": change.old_summary,
+                "new_summary": change.new_summary,
+                "ai_summary": change.ai_summary,
+                "created_at": change.created_at
+            }
+            for change in changes
+        ]
     }
