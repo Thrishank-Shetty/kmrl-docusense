@@ -1,5 +1,5 @@
 from app.database import Base
-from sqlalchemy import Integer, Column, String, Text, JSON, DateTime, ForeignKey, Date,Float
+from sqlalchemy import Integer, Column, String, Text, JSON, DateTime, ForeignKey, Date,Float,Boolean
 from datetime import datetime
 from sqlalchemy.orm import relationship
 
@@ -18,6 +18,7 @@ class Document(Base):
         back_populates="document"
     )
     status = Column(String, default="pending")
+  
 
 class ComplianceItem(Base):
     __tablename__="compliance_item"

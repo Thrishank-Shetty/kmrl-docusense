@@ -87,3 +87,48 @@ def check_duplicate(
         "duplicate": False,
         "reference_number": reference_number
     }
+
+@router.get("/documents/review-required")
+def get_review_required(
+    db: Session = Depends(get_db)
+):
+    documents = (
+        db.query(Document)
+        .filter(
+            Document.extraction_confidence.isnot(None),
+            Document.extraction_confidence < 0.70,
+            Document.human_verified == False
+        )
+        .order_by(Document.upload_date.desc())
+        .all()
+    )
+
+    return documents
+
+@router.post("/documents/{document_id}/verify")
+def verify_document(
+    document_id: int,
+    db: Session = Depends(get_db)
+):
+    document = (
+        db.query(Document)
+        .filter(Document.id == document_id)
+        .first()
+    )
+
+    if document is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Document not found"
+        )
+
+    document.human_verified = True
+
+    db.commit()
+    db.refresh(document)
+
+    return {
+        "message": "Document verified successfully",
+        "document_id": document.id,
+        "human_verified": document.human_verified
+    }
