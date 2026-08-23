@@ -12,11 +12,16 @@ class Document(Base):
     summary=Column(Text,nullable=True)
     entities=Column(JSON)
     upload_date=Column(DateTime,default=datetime.now)
+    extraction_confidence = Column(String)
+
     queue_position=Column(Integer,nullable=True)
     compliance=relationship(
         "ComplianceItem",
         back_populates="document"
     )
+
+    change_history = relationship(
+        "DocumentChange",
     status=Column(String,default="pending")
     file_hash=Column(String,unique=True,nullable=False,index=True)
     extraction_confidence=Column(Float,nullable=True)
@@ -27,6 +32,7 @@ class Document(Base):
         cascade="all, delete-orphan"
     )
 
+    status = Column(String, default="pending")
 
 class ComplianceItem(Base):
     __tablename__="compliance_item"
@@ -41,6 +47,36 @@ class ComplianceItem(Base):
         back_populates="compliance"
     )
 
+class DocumentChange(Base):
+    __tablename__ = "document_changes"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    document_id = Column(
+        Integer,
+        ForeignKey("documents.id"),
+        nullable=False
+    )
+
+    old_filename = Column(String, nullable=True)
+    new_filename = Column(String, nullable=True)
+
+    old_entities = Column(JSON, nullable=True)
+    new_entities = Column(JSON, nullable=True)
+
+    old_summary = Column(Text, nullable=True)
+    new_summary = Column(Text, nullable=True)
+
+    ai_summary = Column(Text, nullable=True)
+
+    created_at = Column(
+        DateTime,
+        default=datetime.now
+    )
+
+    document = relationship(
+        "Document",
+        back_populates="change_history"
 
 class DocumentRevision(Base):
     __tablename__="document_revisions"
