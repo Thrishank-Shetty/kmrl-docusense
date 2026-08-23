@@ -12,12 +12,14 @@ class Document(Base):
     summary=Column(Text,nullable=True)
     entities=Column(JSON)
     upload_date=Column(DateTime,default=datetime.now)
+    queue_position = Column(Integer, nullable=True)
     extraction_confidence = Column(String)
     compliance=relationship(
         "ComplianceItem",
         back_populates="document"
     )
     status = Column(String, default="pending")
+    file_hash = Column(String, unique=True, nullable=False, index=True)
 
 class ComplianceItem(Base):
     __tablename__="compliance_item"
