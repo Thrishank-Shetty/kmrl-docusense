@@ -58,3 +58,4 @@ class DocumentRevisionResponse(BaseModel):
     compliance_risk:dict | None=None
     created_at:datetime
     changed_by:str | None=None
+

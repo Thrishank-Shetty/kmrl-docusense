@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import Document, DocumentRevision, ComplianceItem
+from app.models import Document, DocumentRevision, ComplianceItem,DocumentChange
 from app.schemas import DocumentUpdate,ComplianceItemUpdate
 from app.compliance.risk_engine import calculate_risk
 
