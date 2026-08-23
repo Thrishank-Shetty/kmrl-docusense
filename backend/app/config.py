@@ -7,7 +7,7 @@ load_dotenv(override=True)
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-
+print("GEMINI KEY LOADED:", bool(GEMINI_API_KEY))
+print("GROQ KEY LOADED:", bool(GROQ_API_KEY))

@@ -1,16 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  UploadCloud,
-  Check,
-  FileText,
-  Loader2,
-  AlertCircle,
-} from "lucide-react";
+import {UploadCloud,Check,FileText,Loader2,AlertCircle,} from "lucide-react";
 import { uploadDocument, extractDocument } from "../../lib/api";
+import { useToast } from "../../components/common/useToast.js";
 
 function Upload() {
   const navigate = useNavigate();
+  const { showToast } = useToast();
 
   // status: idle | uploading | uploaded | extracting | done | error
   const [status, setStatus] = useState("idle");
@@ -38,6 +34,7 @@ function Upload() {
       const response = await uploadDocument(file);
       setResult(response.data);
       setStatus("uploaded");
+      showToast("Document uploaded successfully");
       setUploadedFiles((prev) => [
         {
           name: file.name,
@@ -51,6 +48,7 @@ function Upload() {
     } catch (err) {
       console.error("Upload failed:", err);
       setStatus("error");
+      showToast(err.response?.data?.detail || "Upload failed. Please try again.","error");
       setError(
         err.response?.data?.detail ||
           "Upload failed. Check that the backend is running."
@@ -66,6 +64,7 @@ function Upload() {
       const response = await extractDocument(result.document_id);
       setExtraction(response.data);
       setStatus("done");
+      showToast("Document processed successfully");
       setUploadedFiles((prev) =>
         prev.map((f) =>
           f.document_id === result.document_id
@@ -76,6 +75,7 @@ function Upload() {
     } catch (err) {
       console.error("Extraction failed:", err);
       setStatus("error");
+      showToast(err.response?.data?.detail || "NLP extraction failed. Please try again.","error");
       setError(
         err.response?.data?.detail || "NLP extraction failed."
       );
