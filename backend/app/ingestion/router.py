@@ -4,6 +4,10 @@ from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+from typing import Annotated
 from app.database import get_db
 from app.models import Document, DocumentChange
 from app.ingestion.ocr import process_document
@@ -12,6 +16,7 @@ from app.nlp.llm_client import call_llm
 
 import os
 import uuid
+import hashlib
 
 
 router = APIRouter()
@@ -53,18 +58,71 @@ async def upload_documents(
                 "message": "Only PDF and DOCX files are supported"
             })
             continue
+async def upload_document(
+    files: list[UploadFile]=File(...),
+    db: Session = Depends(get_db)
+):
+    # --------------------------------------------------
+    # FILE VALIDATION
+    # --------------------------------------------------
+
+    if not files:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one PDF file is required"
+        )
+
+    for file in files:
+        if not file.filename or not file.filename.lower().endswith(".pdf"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Only PDF files are supported: {file.filename}"
+            )
+
+    os.makedirs("temp", exist_ok=True)
+
+    results = []
+
+    # --------------------------------------------------
+    # PROCESS EACH FILE
+    # --------------------------------------------------
+
+    for file in files:
 
         file_path = f"temp/{uuid.uuid4()}_{file.filename}"
 
         try:
             # --------------------------------------------------
             # SAVE FILE
+            # SAVE UPLOADED FILE
             # --------------------------------------------------
 
             file_content = await file.read()
 
             with open(file_path, "wb") as buffer:
                 buffer.write(file_content)
+
+            # --------------------------------------------------
+            # EXACT DUPLICATE CHECK
+            # --------------------------------------------------
+
+            file_hash = hashlib.sha256(file_content).hexdigest()
+
+            existing_document = (
+                db.query(Document)
+                .filter(Document.file_hash == file_hash)
+                .first()
+            )
+
+            if existing_document:
+                results.append({
+                    "duplicate": True,
+                    "message": "This document has already been uploaded.",
+                    "document_id": existing_document.id,
+                    "filename": existing_document.filename
+                })
+
+                continue
 
             # --------------------------------------------------
             # OCR / TEXT EXTRACTION
@@ -74,6 +132,7 @@ async def upload_documents(
 
             raw_text = result["raw_text"]
             confidence = result["confidence"]
+            ocr_confidence = result["confidence"]
 
             # --------------------------------------------------
             # NLP EXTRACTION
@@ -84,6 +143,47 @@ async def upload_documents(
             doc_type = extracted.get("doc_type")
             summary = extracted.get("summary")
             entities = extracted.get("entities") or {}
+
+            # --------------------------------------------------
+            # CHECK FOR EXISTING DOCUMENT USING
+            # REFERENCE NUMBER
+            # --------------------------------------------------
+
+            reference_number = entities.get("reference_number")
+
+            existing_version = None
+
+            if reference_number:
+                existing_version = (
+                    db.query(Document)
+                    .filter(
+                        Document.entities["reference_number"].as_string()
+                        == reference_number
+                    )
+                    .first()
+                )
+
+            # --------------------------------------------------
+            # NEWER VERSION / SAME DOCUMENT CHECK
+            # --------------------------------------------------
+
+            if existing_version:
+                results.append({
+                    "duplicate": False,
+                    "newer_version": True,
+                    "requires_confirmation": True,
+                    "message": (
+                        "A document with the same reference number "
+                        "already exists. Do you want to replace the "
+                        "existing document with this newer version?"
+                    ),
+                    "existing_document_id": existing_version.id,
+                    "existing_filename": existing_version.filename,
+                    "new_filename": file.filename,
+                    "reference_number": reference_number
+                })
+
+                continue
 
             # --------------------------------------------------
             # CREATE DATABASE RECORD
@@ -101,6 +201,10 @@ async def upload_documents(
                         confidence
                     )
                 ),
+                        ocr_confidence
+                    )
+                ),
+                file_hash=file_hash,
                 status="pending"
             )
 
@@ -130,8 +234,65 @@ async def upload_documents(
 
         finally:
 
+            try:
+                db.commit()
+                db.refresh(document)
+
+            except IntegrityError:
+                db.rollback()
+
+                existing_document = (
+                    db.query(Document)
+                    .filter(Document.file_hash == file_hash)
+                    .first()
+                )
+
+                if existing_document:
+                    results.append({
+                        "duplicate": True,
+                        "message": (
+                            "This document has already been uploaded."
+                        ),
+                        "document_id": existing_document.id,
+                        "filename": existing_document.filename
+                    })
+
+                    continue
+
+                raise HTTPException(
+                    status_code=500,
+                    detail="Failed to save document."
+                )
+
+            # --------------------------------------------------
+            # SUCCESS RESULT FOR THIS FILE
+            # --------------------------------------------------
+
+            results.append({
+                "document_id": document.id,
+                "filename": document.filename,
+                "raw_text": raw_text,
+                "confidence": ocr_confidence,
+                "doc_type": doc_type,
+                "summary": summary,
+                "entities": entities,
+                "duplicate": False,
+                "newer_version": False,
+                "requires_confirmation": False,
+                "message": "Document uploaded successfully."
+            })
+
+        finally:
+            # --------------------------------------------------
+            # REMOVE TEMPORARY FILE
+            # --------------------------------------------------
+
             if os.path.exists(file_path):
                 os.remove(file_path)
+
+    # --------------------------------------------------
+    # RETURN ALL RESULTS
+    # --------------------------------------------------
 
     return {
         "total_files": len(files),
@@ -182,6 +343,10 @@ async def replace_document(
     extension = os.path.splitext(file.filename)[1].lower()
 
     if extension not in ALLOWED_EXTENSIONS:
+    # FILE VALIDATION
+    # --------------------------------------------------
+
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(
             status_code=400,
             detail="Only PDF and DOCX files are supported"
@@ -203,6 +368,24 @@ async def replace_document(
 
         # --------------------------------------------------
         # PROCESS NEW DOCUMENT
+        # HASH NEW FILE
+        # --------------------------------------------------
+
+        file_hash = hashlib.sha256(file_content).hexdigest()
+
+        # --------------------------------------------------
+        # EXACT SAME FILE CHECK
+        # --------------------------------------------------
+
+        if file_hash == existing_document.file_hash:
+            return {
+                "duplicate": True,
+                "message": "This exact document is already uploaded.",
+                "document_id": existing_document.id
+            }
+
+        # --------------------------------------------------
+        # OCR / TEXT EXTRACTION
         # --------------------------------------------------
 
         result = process_document(file_path)
@@ -212,6 +395,10 @@ async def replace_document(
 
         # --------------------------------------------------
         # EXTRACT NEW DOCUMENT DATA
+        ocr_confidence = result["confidence"]
+
+        # --------------------------------------------------
+        # NLP EXTRACTION
         # --------------------------------------------------
 
         extracted = extract_document_data(raw_text)
@@ -290,6 +477,8 @@ from ₹4.8 Cr to ₹5.1 Cr."
         # --------------------------------------------------
         # REPLACE EXISTING DOCUMENT DATA
         # --------------------------------------------------
+        # UPDATE EXISTING DOCUMENT
+        # --------------------------------------------------
 
         existing_document.filename = file.filename
         existing_document.raw_text = raw_text
@@ -328,6 +517,25 @@ from ₹4.8 Cr to ₹5.1 Cr."
 
         # --------------------------------------------------
         # RESPONSE
+        existing_document.doc_type = extracted.get("doc_type")
+        existing_document.summary = extracted.get("summary")
+        existing_document.entities = extracted.get("entities") or {}
+
+        existing_document.extraction_confidence = str(
+            extracted.get(
+                "extraction_confidence",
+                ocr_confidence
+            )
+        )
+
+        existing_document.file_hash = file_hash
+        existing_document.status = "pending"
+
+        db.commit()
+        db.refresh(existing_document)
+
+        # --------------------------------------------------
+        # SUCCESS RESPONSE
         # --------------------------------------------------
 
         return {
@@ -347,6 +555,10 @@ from ₹4.8 Cr to ₹5.1 Cr."
 
             "old_summary": old_summary,
             "new_summary": new_summary
+            "raw_text": raw_text,
+            "doc_type": existing_document.doc_type,
+            "summary": existing_document.summary,
+            "entities": existing_document.entities
         }
 
     except Exception as error:
@@ -363,3 +575,9 @@ from ₹4.8 Cr to ₹5.1 Cr."
         if os.path.exists(file_path):
             os.remove(file_path)
 
+        # --------------------------------------------------
+        # REMOVE TEMPORARY FILE
+        # --------------------------------------------------
+
+        if os.path.exists(file_path):
+            os.remove(file_path)

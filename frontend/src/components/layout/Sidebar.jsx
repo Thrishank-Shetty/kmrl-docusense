@@ -100,7 +100,7 @@ export default function Sidebar() {
                 flex items-center gap-[13px]
                 px-[14px] py-[9px]
                 rounded-[7px]
-                text-left text-[11.5px]
+                text-left text-[14px]
                 transition-colors
                 ${
                   isActive
@@ -122,9 +122,11 @@ export default function Sidebar() {
           className={({ isActive }) => `
             mt-auto
             flex items-center gap-[13px]
-            px-[14px] py-[9px]
-            rounded-[7px]
-            text-[11.5px]
+            px-[15px] py-[10px]
+            rounded-lg
+            text-[14px]
+            text-center
+            font-bold
             transition-colors
             ${
               isActive

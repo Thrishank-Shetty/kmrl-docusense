@@ -11,6 +11,7 @@ import Compliance from "../pages/app/Compliance";
 import Documents from "../pages/app/Documents";
 import Settings from "../pages/app/Settings";
 import Upload from "../pages/app/Upload";
+import NotFound from "../pages/app/NotFound";
 
 
 export default function AppRoutes(){
@@ -34,9 +35,9 @@ export default function AppRoutes(){
                     <Route path="/ai-search" element={<AiSearch/>}/>
                     <Route path="/analytics" element={<Analytics/>}/>
                     <Route path="/settings" element={<Settings/>}/>
-
-
                 </Route>
+                <Route path="*" element={<NotFound />} />
+
             </Routes>
         </BrowserRouter>
     )

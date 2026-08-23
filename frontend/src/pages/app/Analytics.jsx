@@ -1,10 +1,5 @@
 import { useMemo, useState } from 'react';
-import {
-  Activity, BarChart3,  CalendarDays, Check, ChevronDown,
-  ClipboardCheck, Clock3, Download, FileBarChart,
-  FileText, Filter, Gavel, LayoutDashboard,  MoreVertical,
-  Plus, Settings, TrendingDown, TrendingUp, Upload, X
-} from 'lucide-react';
+import {CalendarDays, Check, ChevronDown,ClipboardCheck, Clock3, Download,FileText, Filter, Gavel,MoreVertical,TrendingDown, TrendingUp,} from 'lucide-react';
 
 const departments = [
   ['Procurement', '5,240', '96.2%', '2.1%', 'Optimal'],
@@ -40,8 +35,7 @@ const icons = {
 };
 
 export default function Analytics() {
-  const [activeNav, setActiveNav] = useState('Analytics');
-  const [query, setQuery] = useState('');
+  const [query] = useState('');
   const [range, setRange] = useState('Last 30 Days');
   const [rangeOpen, setRangeOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -63,7 +57,7 @@ export default function Analytics() {
   return (
     <div className="min-h-screen flex bg-[#f7f9fd] text-[#13213a]">
       {/* MAIN */}
-      <div className="ml-[220px] flex-1 min-w-0 max-[960px]:ml-[200px] max-[720px]:ml-0">
+      <div className="ml-[20px] flex-1 min-w-0 max-[960px]:ml-[200px] max-[720px]:ml-0">
         <main className="px-7 pb-[26px] max-w-[1110px] mx-auto max-[960px]:px-5 max-[720px]:px-4">
 
           {/* HEADER */}
