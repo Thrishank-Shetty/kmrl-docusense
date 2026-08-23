@@ -10,6 +10,7 @@ const distribution = [
 
 export default function Dashboard() {
   const [complianceStats, setComplianceStats] = useState(null);
+  const [hoveredCard, setHoveredCard] = useState(null);
 
   useEffect(() => {
     getComplianceStats()
@@ -40,36 +41,36 @@ export default function Dashboard() {
       "OVERDUE",
       complianceStats?.overdue ?? "—",
       "",
-      "#EF4444",
+      "#EF4444"
     ],
   ];
 
   return (
-    <main className="min-h-full bg-[#F3F4F6] p-5">
+    <main className="min-h-full bg-[#DCEBFA] p-5">
 
       {/* Header */}
-      <div className="flex items-start justify-between mb-5">
+      <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-[20px] font-bold text-[#111827]">
+          <h1 className="text-[30px] font-bold tracking-tight text-[#111827]">
             Welcome back, Administrator.
           </h1>
 
-          <p className="text-[11px] text-[#1E293B]/65 mt-1">
+          <p className="text-[15px] text-[#1E293B]/65 mt-1">
             Overview of document intelligence activities.
           </p>
         </div>
 
         <button
           className="
-            px-4 h-9
-            rounded-md
+            px-5 h-11
+            rounded-lg
             bg-[#002D62]
             hover:bg-[#0056B3]
-            text-white text-[10px] font-semibold
+            text-white text-[12px] font-bold
             transition
           "
         >
-          + &nbsp;Upload Documents
+         <b> +</b>&nbsp;Upload Documents
         </button>
       </div>
 
@@ -78,16 +79,21 @@ export default function Dashboard() {
         {stats.map(([title, value, extra, color]) => (
           <div
             key={title}
-            className="
-              h-[88px]
+            onMouseEnter={() => setHoveredCard(title)}
+            onMouseLeave={() => setHoveredCard(null)}
+            className={`
+              h-[110px]
               bg-white
               border border-[#E5E7EB]
-              rounded-lg
+              shadow-sm
+              rounded-xl
               px-4 py-3
-            "
+              transition-all duration-300 ease-out
+              ${hoveredCard === title ? "scale-[1.08] shadow-lg z-10" : hoveredCard ? "scale-[0.96] opacity-80" : ""}
+            `}
           >
             <div className="flex justify-between items-center">
-              <span className="text-[8px] font-medium text-[#1E293B]/70">
+              <span className="text-[14px] font-bold text-center text-[#1E293B]/70">
                 {title}
               </span>
 
@@ -148,11 +154,11 @@ export default function Dashboard() {
               border-b border-[#E5E7EB]
             "
           >
-            <h2 className="text-[11px] font-semibold text-[#111827]">
+            <h2 className="text-[18px] font-bold text-[#111827]">
               Recent Activity
             </h2>
 
-            <button className="text-[9px] text-[#0056B3]">
+            <button className="text-[13px] font-semibold hover:underline text-[#0056B3]">
               View All
             </button>
           </div>
@@ -175,7 +181,7 @@ export default function Dashboard() {
               </div>
 
               <div>
-                <p className="text-[10px] text-[#111827]">
+                <p className="text-[14px] font-medium text-[#111827]">
                   Safety_Manual_V2.pdf successfully analyzed.
                 </p>
 
@@ -286,7 +292,7 @@ export default function Dashboard() {
               text-white
             "
           >
-            <h2 className="text-[11px] font-semibold mb-3">
+            <h2 className="text-[14px] text-center font-bold mb-2">
               Quick Actions
             </h2>
 
@@ -295,10 +301,10 @@ export default function Dashboard() {
                 className="
                   h-12 rounded-md
                   bg-white/10 hover:bg-white/20
-                  text-[8px] font-medium
+                  text-[10px] font-medium
                 "
               >
-                <div className="text-[13px] mb-1">↥</div>
+                <div className="text-[14px] mb-1">↥</div>
                 Upload New
               </button>
 
@@ -306,22 +312,22 @@ export default function Dashboard() {
                 className="
                   h-12 rounded-md
                   bg-white/10 hover:bg-white/20
-                  text-[8px] font-medium
+                  text-[10px] font-medium
                 "
               >
-                <div className="text-[13px] mb-1">⌕</div>
+                <div className="text-[14px] mb-1">⌕</div>
                 Search Docs
               </button>
 
               <button
                 className="
-                  col-span-2 h-11
+                  col-span-2 h-12
                   rounded-md
                   bg-white/10 hover:bg-white/20
-                  text-[8px] font-medium
+                  text-[10px] font-medium
                 "
               >
-                <div className="text-[13px] mb-1">▣</div>
+                <div className="text-[14px] mb-1">▣</div>
                 Generate Report
               </button>
             </div>
@@ -336,7 +342,7 @@ export default function Dashboard() {
               p-4
             "
           >
-            <h2 className="text-[11px] font-semibold text-[#111827] mb-4">
+            <h2 className="text-[16px] font-bold text-[#111827] text-center mb-4">
               Document Distribution
             </h2>
 

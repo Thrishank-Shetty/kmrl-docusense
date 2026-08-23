@@ -1,5 +1,5 @@
 from app.database import Base
-from sqlalchemy import Integer, Column, String, Text, JSON, DateTime, ForeignKey, Date
+from sqlalchemy import Integer, Column, String, Text, JSON, DateTime, ForeignKey, Date,Float
 from datetime import datetime
 from sqlalchemy.orm import relationship
 
@@ -13,13 +13,16 @@ class Document(Base):
     entities=Column(JSON)
     upload_date=Column(DateTime,default=datetime.now)
     queue_position = Column(Integer, nullable=True)
-    extraction_confidence = Column(String)
+    extraction_confidence = Column(Float)
     compliance=relationship(
         "ComplianceItem",
         back_populates="document"
     )
     status = Column(String, default="pending")
     file_hash = Column(String, unique=True, nullable=False, index=True)
+    extraction_confidence = Column(Float, nullable=True)
+    human_verified = Column(Boolean, default=False, nullable=False)
+
 
 class ComplianceItem(Base):
     __tablename__="compliance_item"
