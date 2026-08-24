@@ -108,3 +108,15 @@ export const verifyDocument = (
   api.post(
     `/documents/${documentId}/verify`
   );
+
+// --- Document Change History ---
+
+export const getDocumentChanges = (
+  documentId
+) =>
+  api.get(
+    `/documents/${documentId}/changes`
+  );
+
+export const getComplianceCalendar = (year, month) =>
+  api.get("/compliance/calendar", { params: { year, month } });

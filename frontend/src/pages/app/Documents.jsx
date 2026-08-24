@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {FileText,Loader2,AlertCircle,ChevronDown,ChevronUp,RefreshCw,UploadCloud,Search,SlidersHorizontal,X,Bot,Pencil,Save,CheckCircle2,ShieldCheck,} from "lucide-react";
+import {FileText,Loader2,AlertCircle,ChevronDown,ChevronUp,RefreshCw,UploadCloud,Search,SlidersHorizontal,X,Bot,Pencil,Save,CheckCircle2,ShieldCheck,History,} from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import {getAllDocuments,getDocumentCompliance,} from "../../lib/api";
+import {getAllDocuments,getDocumentCompliance,getDocumentChanges,} from "../../lib/api";
 import api from "../../lib/api";
 import { useToast } from "../../components/common/useToast";
 
@@ -27,6 +27,9 @@ export default function Documents() {
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState(null);
+  const [changes, setChanges] = useState([]);
+  const [changesLoading, setChangesLoading] = useState(false);
+  const [changesError, setChangesError] = useState(null);
 
   const [editingId, setEditingId] = useState(null);
   const [editData, setEditData] = useState({});
@@ -216,6 +219,8 @@ export default function Documents() {
       setExpandedId(null);
       setDetail(null);
       setDetailError(null);
+      setChanges([]);
+      setChangesError(null);
       setEditingId(null);
       setEditData({});
       return;
@@ -224,15 +229,18 @@ export default function Documents() {
     setExpandedId(id);
     setDetail(null);
     setDetailError(null);
+    setChanges([]);
+    setChangesError(null);
     setEditingId(null);
     setEditData({});
     setDetailLoading(true);
+    setChangesLoading(true);
 
     try {
-      const res = await getDocumentCompliance(id);
-      setDetail(res.data);
+      const detailResponse = await getDocumentCompliance(id);
+      setDetail(detailResponse.data);
     } catch (err) {
-      console.error(err);
+      console.error("Failed to load document details:", err);
 
       const message =
         err.response?.data?.detail ||
@@ -242,6 +250,26 @@ export default function Documents() {
       showToast(message, "error");
     } finally {
       setDetailLoading(false);
+    }
+
+    try {
+      const changesResponse = await getDocumentChanges(id);
+
+      setChanges(
+        Array.isArray(changesResponse.data?.changes)
+          ? changesResponse.data.changes
+          : []
+      );
+    } catch (err) {
+      console.error("Failed to load document changes:", err);
+
+      setChanges([]);
+      setChangesError(
+        err.response?.data?.detail ||
+          "Failed to load revision history."
+      );
+    } finally {
+      setChangesLoading(false);
     }
   };
 
@@ -363,6 +391,8 @@ export default function Documents() {
       setEditData({});
       setExpandedId(null);
       setDetail(null);
+      setChanges([]);
+      setChangesError(null);
 
       await loadDocuments(true);
     } catch (err) {
@@ -1015,6 +1045,144 @@ export default function Documents() {
                             No compliance items for this document.
                           </p>
                         )}
+
+                        {/* DOCUMENT CHANGE HISTORY */}
+                        <div className="mt-4 border-t border-slate-200 pt-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              <History size={12} className="text-[#0056a6]" />
+                              <p className="text-[8px] font-semibold uppercase tracking-wide text-slate-400">
+                                Revision History
+                              </p>
+                            </div>
+
+                            {!changesLoading && (
+                              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[7px] font-semibold text-slate-500">
+                                {changes.length} {changes.length === 1 ? "change" : "changes"}
+                              </span>
+                            )}
+                          </div>
+
+                          {changesLoading ? (
+                            <div className="mt-2 flex items-center gap-2 text-[9px] text-slate-400">
+                              <Loader2 size={12} className="animate-spin" />
+                              Loading revision history...
+                            </div>
+                          ) : changesError ? (
+                            <div className="mt-2 flex items-center gap-2 text-[9px] text-red-500">
+                              <AlertCircle size={12} />
+                              {changesError}
+                            </div>
+                          ) : changes.length === 0 ? (
+                            <p className="mt-2 text-[9px] text-slate-400">
+                              No recorded changes for this document.
+                            </p>
+                          ) : (
+                            <div className="mt-2 space-y-3">
+                              {changes.map((change) => {
+                                const oldEntities = change.old_entities || {};
+                                const newEntities = change.new_entities || {};
+                                const fields = [
+                                  ["Document Type", oldEntities.doc_type, newEntities.doc_type],
+                                  ["Reference Number", oldEntities.reference_number, newEntities.reference_number],
+                                  ["Department", oldEntities.department, newEntities.department],
+                                  ["Issue Date", oldEntities.issue_date, newEntities.issue_date],
+                                  ["Expiry Date", oldEntities.expiry_date, newEntities.expiry_date],
+                                  ["Amount", oldEntities.amount, newEntities.amount],
+                                  ["Vendor / Party", oldEntities.vendor_or_party_name, newEntities.vendor_or_party_name],
+                                  ["Asset ID", oldEntities.asset_id, newEntities.asset_id],
+                                ].filter((fieldValues) =>
+                                  String(fieldValues[1] ?? "") !==
+                                  String(fieldValues[2] ?? "")
+                                );
+
+                                const formatValue = (value) =>
+                                  value === null || value === undefined || value === ""
+                                    ? "—"
+                                    : String(value);
+
+                                const createdAt = change.created_at
+                                  ? new Date(change.created_at)
+                                  : null;
+
+                                return (
+                                  <div
+                                    key={change.change_id}
+                                    className="rounded-md border border-slate-200 bg-white p-3"
+                                  >
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <div className="min-w-0">
+                                        <p className="truncate text-[9px] font-semibold text-[#173a61]">
+                                          {change.old_filename || "Previous version"}
+                                          <span className="mx-1 text-slate-400">→</span>
+                                          {change.new_filename || doc.filename || "Current version"}
+                                        </p>
+                                      </div>
+
+                                      {createdAt && !Number.isNaN(createdAt.getTime()) && (
+                                        <span className="shrink-0 text-[7px] text-slate-400">
+                                          {createdAt.toLocaleString()}
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {fields.length > 0 && (
+                                      <div className="mt-2 overflow-hidden rounded-md border border-slate-100">
+                                        <div className="grid grid-cols-[1fr_1fr_1fr] border-b border-slate-100 bg-slate-50 px-2.5 py-1.5">
+                                          <span className="text-[7px] font-semibold uppercase tracking-wide text-slate-400">Field</span>
+                                          <span className="text-[7px] font-semibold uppercase tracking-wide text-slate-400">Previous</span>
+                                          <span className="text-[7px] font-semibold uppercase tracking-wide text-slate-400">Revised</span>
+                                        </div>
+
+                                        {fields.map(([label, oldValue, newValue]) => (
+                                          <div
+                                            key={label}
+                                            className="grid grid-cols-[1fr_1fr_1fr] border-b border-slate-100 px-2.5 py-1.5 last:border-b-0"
+                                          >
+                                            <span className="text-[8px] font-medium text-slate-600">{label}</span>
+                                            <span className="break-words text-[8px] text-red-500">{formatValue(oldValue)}</span>
+                                            <span className="break-words text-[8px] text-green-600">{formatValue(newValue)}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    {(change.old_summary || change.new_summary) && (
+                                      <div className="mt-2 grid gap-2 md:grid-cols-2">
+                                        {change.old_summary && (
+                                          <div className="rounded-md bg-slate-50 px-2.5 py-2">
+                                            <p className="text-[7px] font-semibold uppercase tracking-wide text-slate-400">Previous Summary</p>
+                                            <p className="mt-1 text-[8px] leading-relaxed text-slate-600">
+                                              {change.old_summary}
+                                            </p>
+                                          </div>
+                                        )}
+
+                                        {change.new_summary && (
+                                          <div className="rounded-md bg-blue-50 px-2.5 py-2">
+                                            <p className="text-[7px] font-semibold uppercase tracking-wide text-blue-500">Revised Summary</p>
+                                            <p className="mt-1 text-[8px] leading-relaxed text-blue-800">
+                                              {change.new_summary}
+                                            </p>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {change.ai_summary && (
+                                      <div className="mt-2 rounded-md border border-blue-100 bg-[#f5f8ff] px-2.5 py-2">
+                                        <p className="text-[7px] font-semibold uppercase tracking-wide text-[#52719a]">AI Change Summary</p>
+                                        <p className="mt-1 text-[8px] leading-relaxed text-slate-600">
+                                          {change.ai_summary}
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
                       </>
                     )}
                   </div>

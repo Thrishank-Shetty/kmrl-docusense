@@ -122,6 +122,64 @@ def get_compliance_stats(
         "upcoming_30_days": upcoming_30_days,
         "overdue": overdue
     }
+from calendar import monthrange
+
+
+# Get compliance deadlines grouped by date, for a calendar view
+@router.get("/calendar")
+def get_compliance_calendar(
+    year: int = None,
+    month: int = None,
+    db: Session = Depends(get_db)
+):
+    today = date.today()
+
+    if year is None:
+        year = today.year
+
+    if month is None:
+        month = today.month
+
+    # first and last day of the requested month
+    first_day = date(year, month, 1)
+    last_day_num = monthrange(year, month)[1]
+    last_day = date(year, month, last_day_num)
+
+    items = (
+        db.query(ComplianceItem)
+        .filter(
+            ComplianceItem.deadline_date >= first_day,
+            ComplianceItem.deadline_date <= last_day
+        )
+        .order_by(
+            ComplianceItem.deadline_date.asc()
+        )
+        .all()
+    )
+
+    calendar_data = {}
+
+    for item in items:
+
+        day_key = item.deadline_date.isoformat()
+
+        if day_key not in calendar_data:
+            calendar_data[day_key] = []
+
+        calendar_data[day_key].append({
+            "compliance_item_id": item.id,
+            "document_id": item.document_id,
+            "filename": item.document.filename if item.document else None,
+            "doc_type": item.document.doc_type if item.document else None,
+            "risk_type": item.risk_type,
+            "urgency": item.urgency
+        })
+
+    return {
+        "year": year,
+        "month": month,
+        "days": calendar_data
+    }
 
 # Get compliance information for one document
 @router.get("/{document_id}")

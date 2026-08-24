@@ -191,6 +191,7 @@ function Upload() {
 
     setQueue((currentQueue) => {
       const updatedQueue = [...currentQueue];
+
       const targetIndex =
         direction === "up"
           ? index - 1
@@ -331,7 +332,23 @@ function Upload() {
     await runExtraction(item, documentId);
   };
 
-  const handleBulkResponse = async (response) => {
+  // ---------------------------------------------------------
+  // IMPORTANT:
+  // Backend returns results in the same order as uploaded files.
+  // We therefore match:
+  //
+  // itemsToUpload[0] -> results[0]
+  // itemsToUpload[1] -> results[1]
+  // itemsToUpload[2] -> results[2]
+  //
+  // This avoids relying on filename matching or React state
+  // having already updated from "Queued" to "Uploading".
+  // ---------------------------------------------------------
+
+  const handleBulkResponse = async (
+    response,
+    itemsToUpload
+  ) => {
     const data = response?.data;
 
     const results = Array.isArray(data?.results)
@@ -346,35 +363,38 @@ function Upload() {
       );
     }
 
-    for (const result of results) {
-      const returnedFilename =
-        result?.filename ||
-        result?.file_name ||
-        result?.name;
-
-      let item = queue.find(
-        (queueItem) =>
-          queueItem.name === returnedFilename
-      );
+    for (
+      let index = 0;
+      index < results.length;
+      index++
+    ) {
+      const result = results[index];
+      const item = itemsToUpload[index];
 
       if (!item) {
-        item = queue.find(
-          (queueItem) =>
-            queueItem.status === "Uploading"
+        console.warn(
+          "Received an upload result without a matching queue item:",
+          result
         );
+        continue;
       }
 
-      if (!item) continue;
+      // -----------------------------------------------------
+      // EXACT DUPLICATE
+      // -----------------------------------------------------
 
       if (result?.duplicate === true) {
         updateQueueItem(item.id, {
           status: "Duplicate",
           duplicate: true,
+          newer_version: false,
           error:
             result?.message ||
             "This document has already been uploaded.",
           document_id:
-            result?.document_id || null,
+            result?.existing_document_id ||
+            result?.document_id ||
+            null,
         });
 
         setConfirmation({
@@ -385,13 +405,17 @@ function Upload() {
             result?.message ||
             "This document has already been uploaded.",
           existingFilename:
-            result?.filename ||
             result?.existing_filename ||
+            result?.filename ||
             null,
         });
 
         continue;
       }
+
+      // -----------------------------------------------------
+      // NEWER VERSION / REPLACEMENT CONFIRMATION
+      // -----------------------------------------------------
 
       if (
         result?.newer_version === true ||
@@ -399,13 +423,17 @@ function Upload() {
       ) {
         updateQueueItem(item.id, {
           status: "Needs Confirmation",
+          duplicate: false,
           newer_version: true,
           existing_document_id:
-            result?.existing_document_id || null,
+            result?.existing_document_id ||
+            null,
           existing_filename:
-            result?.existing_filename || null,
+            result?.existing_filename ||
+            null,
           reference_number:
-            result?.reference_number || null,
+            result?.reference_number ||
+            null,
           error:
             result?.message ||
             "An existing document was found.",
@@ -416,11 +444,14 @@ function Upload() {
           queueId: item.id,
           name: item.name,
           existingDocumentId:
-            result?.existing_document_id,
+            result?.existing_document_id ||
+            null,
           existingFilename:
-            result?.existing_filename,
+            result?.existing_filename ||
+            null,
           referenceNumber:
-            result?.reference_number,
+            result?.reference_number ||
+            null,
           message:
             result?.message ||
             "A document with the same reference number already exists.",
@@ -429,7 +460,14 @@ function Upload() {
         continue;
       }
 
-      await processUploadResult(item, result);
+      // -----------------------------------------------------
+      // NORMAL UPLOAD
+      // -----------------------------------------------------
+
+      await processUploadResult(
+        item,
+        result
+      );
     }
   };
 
@@ -462,7 +500,11 @@ function Upload() {
 
       const response = await uploadDocument(files);
 
-      await handleBulkResponse(response);
+      // Pass the exact queue items used for this request.
+      await handleBulkResponse(
+        response,
+        itemsToUpload
+      );
 
       setStatus("done");
       showToast("Queue processing completed");
@@ -636,6 +678,9 @@ function Upload() {
       error: null,
       duplicate: false,
       newer_version: false,
+      existing_document_id: null,
+      existing_filename: null,
+      reference_number: null,
     });
   };
 
@@ -734,6 +779,7 @@ function Upload() {
             <h2 className="text-[10px] font-semibold text-[#062f5c]">
               Processing Queue
             </h2>
+
             <p className="text-[7px] text-slate-400">
               Files are processed from top to
               bottom
@@ -786,15 +832,19 @@ function Upload() {
               <span className="text-[7px] font-medium uppercase tracking-wide text-slate-400">
                 #
               </span>
+
               <span className="text-[7px] font-medium uppercase tracking-wide text-slate-500">
                 Document
               </span>
+
               <span className="text-[7px] font-medium uppercase tracking-wide text-slate-500">
                 Confidence
               </span>
+
               <span className="text-[7px] font-medium uppercase tracking-wide text-slate-500">
                 Status
               </span>
+
               <span className="text-center text-[7px] font-medium uppercase tracking-wide text-slate-500">
                 Order
               </span>

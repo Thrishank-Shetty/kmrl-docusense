@@ -1,5 +1,20 @@
 import { useEffect, useState } from "react";
-import {CalendarDays,Check,ChevronDown,Download,FileText,Filter,Gavel,MoreVertical,TrendingDown,TrendingUp,AlertTriangle,BarChart3,Clock3,RefreshCw,} from "lucide-react";
+import {
+  CalendarDays,
+  Check,
+  ChevronDown,
+  Download,
+  FileText,
+  Filter,
+  Gavel,
+  MoreVertical,
+  TrendingDown,
+  TrendingUp,
+  AlertTriangle,
+  BarChart3,
+  Clock3,
+  RefreshCw,
+} from "lucide-react";
 import { getAnalyticsSummary } from "../../lib/api";
 import { useToast } from "../../components/common/useToast";
 
@@ -99,21 +114,6 @@ export default function Analytics() {
       "Report export will be available soon.",
       "info"
     );
-  };
-
-  const formatWeek = (week) => {
-    if (!week) return "";
-
-    const date = new Date(`${week}T00:00:00`);
-
-    if (Number.isNaN(date.getTime())) {
-      return week;
-    }
-
-    return date.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-    });
   };
 
   const getUrgencyClass = (urgency) => {
@@ -233,13 +233,18 @@ export default function Analytics() {
     ],
   ];
 
-  const documentTypes = analytics.doc_type_counts || [];
-  const urgencyCounts = analytics.urgency_counts || [];
-  const volumeByWeek = analytics.volume_by_week || [];
+  const documentTypes =
+    analytics.doc_type_counts || [];
 
-  // FIX: normalize count values before calculating chart heights
+  const urgencyCounts =
+    analytics.urgency_counts || [];
+
+  // Backend returns volume_by_period
+  const volumeByPeriod =
+    analytics.volume_by_period || [];
+
   const maxVolume = Math.max(
-    ...volumeByWeek.map(
+    ...volumeByPeriod.map(
       (item) => Number(item.count) || 0
     ),
     1
@@ -255,7 +260,6 @@ export default function Analytics() {
   return (
     <div className="min-h-screen bg-[#f7f9fd] text-[#13213a]">
       <main className="mx-auto max-w-[1110px] px-7 pb-[26px] max-[960px]:px-5 max-[720px]:px-4">
-
         {/* HEADER */}
         <section className="flex items-end justify-between gap-6 py-[2px] pb-[21px] max-[720px]:block max-[720px]:pt-[19px]">
           <div>
@@ -273,7 +277,9 @@ export default function Analytics() {
             {/* RANGE */}
             <div className="relative">
               <button
-                onClick={() => setRangeOpen(!rangeOpen)}
+                onClick={() =>
+                  setRangeOpen(!rangeOpen)
+                }
                 className="flex h-[38px] items-center gap-2 rounded-[7px] border border-[#9aa6b8] bg-white px-[13px] text-[13px] font-bold"
               >
                 <CalendarDays size={18} />
@@ -283,7 +289,9 @@ export default function Analytics() {
                 <ChevronDown
                   size={16}
                   className={
-                    rangeOpen ? "rotate-180" : ""
+                    rangeOpen
+                      ? "rotate-180"
+                      : ""
                   }
                 />
               </button>
@@ -301,7 +309,10 @@ export default function Analytics() {
                         setRange(option);
                         setRangeOpen(false);
 
-                        if (option !== "Last 30 Days") {
+                        if (
+                          option !==
+                          "Last 30 Days"
+                        ) {
                           showToast(
                             "The backend currently provides 30-day analytics.",
                             "info"
@@ -330,7 +341,9 @@ export default function Analytics() {
               <RefreshCw
                 size={17}
                 className={
-                  refreshing ? "animate-spin" : ""
+                  refreshing
+                    ? "animate-spin"
+                    : ""
                 }
               />
 
@@ -356,10 +369,19 @@ export default function Analytics() {
         {/* KPI CARDS */}
         <section className="mb-5 grid grid-cols-4 gap-5 max-[960px]:gap-3 max-[720px]:grid-cols-2">
           {kpis.map(
-            ([label, value, change, icon, positive]) => {
+            ([
+              label,
+              value,
+              change,
+              icon,
+              positive,
+            ]) => {
               const Icon = icons[icon];
+
               const good =
-                positive || change?.startsWith("-");
+                positive ||
+                change?.startsWith("-");
+
               const Trend = good
                 ? TrendingUp
                 : TrendingDown;
@@ -391,6 +413,7 @@ export default function Analytics() {
                     >
                       <Trend size={14} />
                       <b>{change}</b>
+
                       <span className="text-[#4f596a]">
                         vs last month
                       </span>
@@ -408,7 +431,6 @@ export default function Analytics() {
 
         {/* CHARTS */}
         <section className="mb-5 grid grid-cols-[2.1fr_1.1fr] gap-5 max-[960px]:grid-cols-1 max-[720px]:gap-3">
-
           {/* VOLUME BAR CHART */}
           <div className="relative rounded-lg border border-[#cbd2df] bg-white p-5">
             <div className="mb-[18px] flex items-center justify-between">
@@ -418,12 +440,14 @@ export default function Analytics() {
                 </h2>
 
                 <p className="mt-1 text-[9px] text-slate-400">
-                  Documents processed by week.
+                  Documents processed over the selected period.
                 </p>
               </div>
 
               <button
-                onClick={() => setMenuOpen(!menuOpen)}
+                onClick={() =>
+                  setMenuOpen(!menuOpen)
+                }
                 className="text-slate-500 hover:text-slate-800"
               >
                 <MoreVertical size={19} />
@@ -442,63 +466,81 @@ export default function Analytics() {
               </div>
             )}
 
-            {volumeByWeek.length === 0 ? (
+            {volumeByPeriod.length ===
+            0 ? (
               <div className="grid h-[224px] place-items-center rounded-[7px] border border-[#d4dced] bg-[#f0f3fd] text-[10px] text-slate-400">
                 No volume data available.
               </div>
             ) : (
               <div className="relative h-[224px] overflow-hidden rounded-[7px] border border-[#d4dced] bg-[#f0f3fd] px-4 pb-8 pt-5">
-
                 {/* GRID */}
                 <div className="absolute inset-[19px_14px_32px] flex flex-col justify-between">
-                  {[1, 2, 3, 4].map((i) => (
-                    <span
-                      key={i}
-                      className="h-px bg-[#dbe2f0]"
-                    />
-                  ))}
+                  {[1, 2, 3, 4].map(
+                    (i) => (
+                      <span
+                        key={i}
+                        className="h-px bg-[#dbe2f0]"
+                      />
+                    )
+                  )}
                 </div>
 
                 {/* BARS */}
                 <div className="absolute inset-[22px_14px_30px] flex items-end gap-[7px]">
-                  {volumeByWeek.map((item) => {
-                    const count =
-                      Number(item.count) || 0;
+                  {volumeByPeriod.map(
+                    (item) => {
+                      const count =
+                        Number(
+                          item.count
+                        ) || 0;
 
-                    const height = Math.max(
-                      (count / maxVolume) * 100,
-                      5
-                    );
+                      const height =
+                        Math.max(
+                          (count /
+                            maxVolume) *
+                            100,
+                          5
+                        );
 
-                    return (
-                      <div
-                        key={item.week}
-                        className="group relative flex h-full flex-1 items-end"
-                      >
+                      const key =
+                        item.date ||
+                        item.week_start ||
+                        item.period;
+
+                      return (
                         <div
-                          className="w-full rounded-t-[4px] bg-[#214f82] transition hover:bg-[#1262c2]"
-                          style={{
-                            height: `${height}%`,
-                          }}
-                          title={`${formatWeek(
-                            item.week
-                          )}: ${count}`}
-                        />
-                      </div>
-                    );
-                  })}
+                          key={key}
+                          className="group relative flex h-full flex-1 items-end"
+                        >
+                          <div
+                            className="w-full rounded-t-[4px] bg-[#214f82] transition hover:bg-[#1262c2]"
+                            style={{
+                              height: `${height}%`,
+                            }}
+                            title={`${item.period}: ${count}`}
+                          />
+                        </div>
+                      );
+                    }
+                  )}
                 </div>
 
                 {/* LABELS */}
                 <div className="absolute bottom-[6px] left-[14px] right-[14px] flex justify-between gap-2 overflow-hidden text-[8px] text-[#7d8796]">
-                  {volumeByWeek.map((item) => (
-                    <span
-                      key={item.week}
-                      className="min-w-0 flex-1 truncate text-center"
-                    >
-                      {formatWeek(item.week)}
-                    </span>
-                  ))}
+                  {volumeByPeriod.map(
+                    (item) => (
+                      <span
+                        key={
+                          item.date ||
+                          item.week_start ||
+                          item.period
+                        }
+                        className="min-w-0 flex-1 truncate text-center"
+                      >
+                        {item.period}
+                      </span>
+                    )
+                  )}
                 </div>
               </div>
             )}
@@ -520,40 +562,60 @@ export default function Analytics() {
               <Filter size={18} />
             </div>
 
-            {documentTypes.length === 0 ? (
+            {documentTypes.length ===
+            0 ? (
               <div className="grid h-[220px] place-items-center text-[10px] text-slate-400">
                 No document type data available.
               </div>
             ) : (
               <div className="flex items-center gap-6 max-[500px]:flex-col">
-
                 {/* DONUT */}
                 <div className="relative h-[165px] w-[165px] shrink-0">
                   <div
                     className="h-full w-full rounded-full"
                     style={{
                       background: `conic-gradient(${documentTypes
-                        .map((item, index, arr) => {
-                          const start = arr
-                            .slice(0, index)
-                            .reduce(
-                              (sum, current) =>
-                                sum +
-                                Number(
-                                  current.percentage || 0
-                                ),
-                              0
-                            );
+                        .map(
+                          (
+                            item,
+                            index,
+                            arr
+                          ) => {
+                            const start =
+                              arr
+                                .slice(
+                                  0,
+                                  index
+                                )
+                                .reduce(
+                                  (
+                                    sum,
+                                    current
+                                  ) =>
+                                    sum +
+                                    Number(
+                                      current.percentage ||
+                                        0
+                                    ),
+                                  0
+                                );
 
-                          const end =
-                            start +
-                            Number(item.percentage || 0);
+                            const end =
+                              start +
+                              Number(
+                                item.percentage ||
+                                  0
+                              );
 
-                          return `${
-                            colors[index % colors.length]
-                          } ${start}% ${end}%`;
-                        })
-                        .join(", ")})`,
+                            return `${
+                              colors[
+                                index %
+                                  colors.length
+                              ]
+                            } ${start}% ${end}%`;
+                          }
+                        )
+                        .join(", ")}`,
                     }}
                   >
                     <div className="absolute inset-[20px] flex flex-col items-center justify-center rounded-full bg-white">
@@ -570,38 +632,41 @@ export default function Analytics() {
 
                 {/* LEGEND */}
                 <div className="min-w-0 flex-1 space-y-3">
-                  {documentTypes.map((item, index) => (
-                    <div
-                      key={item.type}
-                      className="flex items-center justify-between gap-3"
-                    >
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span
-                          className="h-2.5 w-2.5 shrink-0 rounded-full"
-                          style={{
-                            backgroundColor:
-                              colors[
-                                index % colors.length
-                              ],
-                          }}
-                        />
+                  {documentTypes.map(
+                    (item, index) => (
+                      <div
+                        key={item.type}
+                        className="flex items-center justify-between gap-3"
+                      >
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span
+                            className="h-2.5 w-2.5 shrink-0 rounded-full"
+                            style={{
+                              backgroundColor:
+                                colors[
+                                  index %
+                                    colors.length
+                                ],
+                            }}
+                          />
 
-                        <span className="truncate text-[10px] font-semibold text-slate-600">
-                          {item.type}
-                        </span>
+                          <span className="truncate text-[10px] font-semibold text-slate-600">
+                            {item.type}
+                          </span>
+                        </div>
+
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span className="text-[9px] text-slate-400">
+                            {item.count}
+                          </span>
+
+                          <span className="text-[10px] font-bold text-slate-700">
+                            {item.percentage}%
+                          </span>
+                        </div>
                       </div>
-
-                      <div className="flex shrink-0 items-center gap-2">
-                        <span className="text-[9px] text-slate-400">
-                          {item.count}
-                        </span>
-
-                        <span className="text-[10px] font-bold text-slate-700">
-                          {item.percentage}%
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  )}
                 </div>
               </div>
             )}
@@ -627,7 +692,8 @@ export default function Analytics() {
             />
           </div>
 
-          {urgencyCounts.length === 0 ? (
+          {urgencyCounts.length ===
+          0 ? (
             <div className="rounded-md bg-green-50 px-4 py-8 text-center">
               <Check
                 size={22}
@@ -640,45 +706,51 @@ export default function Analytics() {
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-4 max-[720px]:grid-cols-1">
-              {urgencyCounts.map((item) => (
-                <div
-                  key={item.urgency}
-                  className="rounded-md border border-slate-100 bg-[#fafbff] p-3"
-                >
-                  <div className="mb-2 flex items-center justify-between">
-                    <span
-                      className={`rounded-full px-2 py-1 text-[8px] font-bold capitalize ${getUrgencyClass(
-                        item.urgency
-                      )}`}
-                    >
-                      {item.urgency}
-                    </span>
+              {urgencyCounts.map(
+                (item) => (
+                  <div
+                    key={item.urgency}
+                    className="rounded-md border border-slate-100 bg-[#fafbff] p-3"
+                  >
+                    <div className="mb-2 flex items-center justify-between">
+                      <span
+                        className={`rounded-full px-2 py-1 text-[8px] font-bold capitalize ${getUrgencyClass(
+                          item.urgency
+                        )}`}
+                      >
+                        {item.urgency}
+                      </span>
 
-                    <span className="text-[12px] font-bold text-slate-700">
-                      {item.count}
-                    </span>
+                      <span className="text-[12px] font-bold text-slate-700">
+                        {item.count}
+                      </span>
+                    </div>
+
+                    <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                      <div
+                        className="h-full rounded-full bg-[#1369c6]"
+                        style={{
+                          width: `${Math.max(
+                            (Number(
+                              item.count
+                            ) /
+                              maxUrgency) *
+                              100,
+                            5
+                          )}%`,
+                        }}
+                      />
+                    </div>
+
+                    <p className="mt-1 text-[8px] text-slate-400">
+                      {item.count} compliance item
+                      {item.count === 1
+                        ? ""
+                        : "s"}
+                    </p>
                   </div>
-
-                  <div className="h-2 overflow-hidden rounded-full bg-slate-200">
-                    <div
-                      className="h-full rounded-full bg-[#1369c6]"
-                      style={{
-                        width: `${Math.max(
-                          (Number(item.count) /
-                            maxUrgency) *
-                            100,
-                          5
-                        )}%`,
-                      }}
-                    />
-                  </div>
-
-                  <p className="mt-1 text-[8px] text-slate-400">
-                    {item.count} compliance item
-                    {item.count === 1 ? "" : "s"}
-                  </p>
-                </div>
-              ))}
+                )
+              )}
             </div>
           )}
         </section>
@@ -724,7 +796,10 @@ export default function Analytics() {
               <p className="mt-1 text-[18px] font-bold text-[#14213a]">
                 {urgencyCounts.reduce(
                   (total, item) =>
-                    total + Number(item.count || 0),
+                    total +
+                    Number(
+                      item.count || 0
+                    ),
                   0
                 )}
               </p>
@@ -732,11 +807,11 @@ export default function Analytics() {
 
             <div className="rounded-md bg-[#f7f9fd] p-3">
               <p className="text-[8px] uppercase tracking-wide text-slate-400">
-                Weeks Tracked
+                Periods Tracked
               </p>
 
               <p className="mt-1 text-[18px] font-bold text-[#14213a]">
-                {volumeByWeek.length}
+                {volumeByPeriod.length}
               </p>
             </div>
           </div>

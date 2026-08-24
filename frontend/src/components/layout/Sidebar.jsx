@@ -2,9 +2,8 @@ import { NavLink } from "react-router-dom";
 import { useState } from "react";
 import {
   FileText,
-  Plus,
   X,
-  Settings,
+  User,
   LayoutDashboard,
   Upload,
   FileBarChart,
@@ -43,9 +42,13 @@ export default function Sidebar() {
         `}
       >
         {/* LOGO / HEADER */}
-        <div className="flex items-center gap-3 px-[7px] mb-[31px]">
-          <div className="w-[34px] h-[34px] rounded bg-[#092d62] text-white grid place-items-center">
-            <FileText size={22} />
+        <div className="mb-[31px] flex items-center gap-3 px-[7px]">
+          <div className="grid h-[34px] w-[34px] place-items-center rounded">
+            <img
+              src="/blue logo.png"
+              alt="KMRL DocuSense logo"
+              className="h-full w-full object-contain"
+            />
           </div>
 
           <div>
@@ -53,7 +56,7 @@ export default function Sidebar() {
               KMRL Intelligence
             </div>
 
-            <div className="text-[11px] text-[#4c5668] mt-[3px]">
+            <div className="mt-[3px] text-[11px] text-[#4c5668]">
               Infrastructure Ops
             </div>
           </div>
@@ -61,33 +64,13 @@ export default function Sidebar() {
           {/* MOBILE CLOSE */}
           <button
             type="button"
-            className="hidden max-[720px]:grid ml-auto"
+            className="ml-auto hidden max-[720px]:grid"
             onClick={() => setMobileNavOpen(false)}
             aria-label="Close navigation"
           >
             <X size={20} />
           </button>
         </div>
-
-        {/* NEW EXTRACTION */}
-        <NavLink
-          to="/upload"
-          onClick={() => setMobileNavOpen(false)}
-          className="
-            flex items-center justify-center gap-2
-            h-[35px] mb-[26px]
-            rounded-[7px]
-            bg-[#08274f]
-            text-white
-            text-[13px]
-            font-bold
-            hover:bg-[#124c90]
-            transition-colors
-          "
-        >
-          <Plus size={19} />
-          New Extraction
-        </NavLink>
 
         {/* NAVIGATION */}
         <nav className="flex flex-col gap-[3px]">
@@ -115,7 +98,7 @@ export default function Sidebar() {
           ))}
         </nav>
 
-        {/* SETTINGS */}
+        {/* PROFILE */}
         <NavLink
           to="/settings"
           onClick={() => setMobileNavOpen(false)}
@@ -135,8 +118,8 @@ export default function Sidebar() {
             }
           `}
         >
-          <Settings size={18} />
-          Settings
+          <User size={18} />
+          Profile
         </NavLink>
       </aside>
 
