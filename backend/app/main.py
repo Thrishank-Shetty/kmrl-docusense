@@ -10,8 +10,10 @@ from app.search.router import router as search_router
 from app.chatbot.router import router as chatbot_router
 from app.analytics.router import router as analytics_router
 from app.documents.router import router as documents_router
+from app.auth.router import router as auth_router
 
 from app.database import Base, engine
+from app.models import User
 
 
 app = FastAPI()
@@ -71,6 +73,7 @@ app.include_router(chatbot_router)
 app.include_router(nlp_router)
 app.include_router(analytics_router)
 app.include_router(documents_router, tags=["Documents"])
+app.include_router(auth_router)
 
 
 @app.get("/health")
