@@ -1,26 +1,58 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  UploadCloud, Check, FileText, Loader2, AlertCircle,
-  ArrowUp, ArrowDown, X, Play, GripVertical,
+  UploadCloud,
+  Check,
+  FileText,
+  Loader2,
+  AlertCircle,
+  ArrowUp,
+  ArrowDown,
+  X,
+  Play,
+  GripVertical,
+  RefreshCw,
 } from "lucide-react";
-import { uploadDocument, extractDocument } from "../../lib/api";
+import {
+  uploadDocument,
+  extractDocument,
+  replaceDocument,
+} from "../../lib/api";
 import { useToast } from "../../components/common/useToast.js";
 
-const formatConfidence = (v) => {
-  const n = Number(v);
-  return Number.isFinite(n) ? `${(n * 100).toFixed(1)}%` : "N/A";
+const formatConfidence = (value) => {
+  const confidence = Number(value);
+  if (!Number.isFinite(confidence)) return "N/A";
+  return `${(confidence * 100).toFixed(1)}%`;
 };
 
-const statusClass = {
-  Processed: "bg-[#e8f0ed] text-[#315b50]",
-  Failed: "bg-red-50 text-red-600",
-  Extracting: "bg-purple-50 text-purple-600",
-  Uploading: "bg-blue-50 text-blue-600",
-  Queued: "bg-slate-100 text-slate-500",
+const getConfidenceNumber = (value) => {
+  const confidence = Number(value);
+  return Number.isFinite(confidence) ? confidence : null;
 };
 
-export default function Upload() {
+const getErrorMessage = (
+  error,
+  fallback = "Something went wrong."
+) => {
+  const detail = error?.response?.data?.detail;
+
+  if (typeof detail === "string") return detail;
+
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => item?.msg || "Validation error")
+      .join(", ");
+  }
+
+  return (
+    error?.response?.data?.message ||
+    error?.message ||
+    fallback
+  );
+};
+
+function Upload() {
   const navigate = useNavigate();
   const { showToast } = useToast();
 
@@ -31,244 +63,597 @@ export default function Upload() {
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [queue, setQueue] = useState([]);
   const [processingQueue, setProcessingQueue] = useState(false);
+  const [confirmation, setConfirmation] = useState(null);
 
-  const updateQueueItem = (id, changes) =>
-    setQueue((q) =>
-      q.map((x) => (x.id === id ? { ...x, ...changes } : x))
+  const updateQueueItem = (id, changes) => {
+    setQueue((currentQueue) =>
+      currentQueue.map((item) =>
+        item.id === id
+          ? { ...item, ...changes }
+          : item
+      )
     );
+  };
 
-  const handleFileChange = (e) => {
-    const files = Array.from(e.target.files || []);
+  const handleFileChange = (event) => {
+    const files = Array.from(event.target.files || []);
+
     if (!files.length) return;
 
-    if (files.some((f) => !f.name.toLowerCase().endsWith(".pdf"))) {
+    const invalidFiles = files.filter(
+      (file) =>
+        !file.name.toLowerCase().endsWith(".pdf")
+    );
+
+    if (invalidFiles.length) {
       setError("Only PDF files are supported right now.");
       setStatus("error");
+      event.target.value = "";
       return;
     }
 
     setError(null);
     setStatus("idle");
 
-    const now = Date.now();
+    const timestamp = Date.now();
 
-    setQueue((q) => [
-      ...q,
-      ...files.map((file, i) => ({
-        id: `${file.name}-${file.lastModified}-${i}-${now}`,
-        file,
-        name: file.name,
-        size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-        status: "Queued",
-        document_id: null,
-        confidence: null,
-        error: null,
-      })),
+    const newItems = files.map((file, index) => ({
+      id: `${file.name}-${file.lastModified}-${timestamp}-${index}`,
+      file,
+      name: file.name,
+      size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+      status: "Queued",
+      document_id: null,
+      confidence: null,
+      error: null,
+      duplicate: false,
+      newer_version: false,
+      existing_document_id: null,
+      existing_filename: null,
+      reference_number: null,
+    }));
+
+    setQueue((currentQueue) => [
+      ...currentQueue,
+      ...newItems,
     ]);
 
     showToast(
-      `${files.length} ${files.length === 1 ? "file" : "files"} added to queue`
+      `${files.length} ${
+        files.length === 1 ? "file" : "files"
+      } added to queue`
     );
-    e.target.value = "";
+
+    event.target.value = "";
+  };
+
+  const handleDifferentFile = (event) => {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+      setError("Only PDF files are supported right now.");
+      setStatus("error");
+      event.target.value = "";
+      return;
+    }
+
+    const queueId = confirmation?.queueId;
+
+    if (!queueId) {
+      event.target.value = "";
+      return;
+    }
+
+    setQueue((currentQueue) =>
+      currentQueue.map((item) =>
+        item.id === queueId
+          ? {
+              ...item,
+              id: `${file.name}-${file.lastModified}-${Date.now()}`,
+              file,
+              name: file.name,
+              size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+              status: "Queued",
+              error: null,
+              duplicate: false,
+              newer_version: false,
+              existing_document_id: null,
+              existing_filename: null,
+              reference_number: null,
+              document_id: null,
+              confidence: null,
+            }
+          : item
+      )
+    );
+
+    setConfirmation(null);
+    setError(null);
+    setStatus("idle");
+
+    showToast("Different file added to queue");
+
+    event.target.value = "";
   };
 
   const removeFromQueue = (id) => {
-    if (!processingQueue)
-      setQueue((q) => q.filter((x) => x.id !== id));
+    if (processingQueue) return;
+
+    setQueue((currentQueue) =>
+      currentQueue.filter((item) => item.id !== id)
+    );
   };
 
   const moveQueueItem = (index, direction) => {
     if (processingQueue) return;
 
-    setQueue((q) => {
-      const next = [...q];
-      const target = direction === "up" ? index - 1 : index + 1;
+    setQueue((currentQueue) => {
+      const updatedQueue = [...currentQueue];
+      const targetIndex =
+        direction === "up"
+          ? index - 1
+          : index + 1;
 
-      if (target < 0 || target >= next.length) return q;
+      if (
+        targetIndex < 0 ||
+        targetIndex >= updatedQueue.length
+      ) {
+        return currentQueue;
+      }
 
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
+      [updatedQueue[index], updatedQueue[targetIndex]] = [
+        updatedQueue[targetIndex],
+        updatedQueue[index],
+      ];
+
+      return updatedQueue;
     });
-  };
-
-  const uploadSingleDocument = async (item) => {
-    const response = await uploadDocument(item.file);
-    const results = response.data?.results;
-
-    if (!Array.isArray(results) || !results.length)
-      throw new Error("Backend did not return an uploaded document result.");
-
-    const uploaded = results[0];
-
-    if (!uploaded.document_id)
-      throw new Error("Backend did not return a document ID.");
-
-    const confidence = Number(uploaded.confidence);
-
-    return {
-      ...uploaded,
-      document_id: uploaded.document_id,
-      confidence: Number.isFinite(confidence) ? confidence : null,
-    };
   };
 
   const addRecentUpload = (
     item,
-    uploaded,
-    uploadStatus = "Uploaded",
-    confidence
-  ) =>
-    setUploadedFiles((files) => [
+    documentId,
+    confidence,
+    uploadStatus = "Uploaded"
+  ) => {
+    setUploadedFiles((currentFiles) => [
       {
         name: item.name,
         size: item.size,
         date: new Date().toLocaleString(),
-        document_id: uploaded.document_id,
+        document_id: documentId,
         status: uploadStatus,
         confidence,
       },
-      ...files,
+      ...currentFiles,
     ]);
+  };
+
+  const runExtraction = async (item, documentId) => {
+    updateQueueItem(item.id, {
+      status: "Extracting",
+      error: null,
+    });
+
+    setStatus("extracting");
+
+    try {
+      const response = await extractDocument(documentId);
+      const extracted = response.data;
+
+      setExtraction(extracted);
+
+      const extractedConfidence =
+        getConfidenceNumber(
+          extracted?.document?.extraction_confidence ??
+            extracted?.extraction_confidence ??
+            extracted?.confidence
+        );
+
+      updateQueueItem(item.id, {
+        status: "Processed",
+        confidence: extractedConfidence,
+        error: null,
+      });
+
+      setUploadedFiles((currentFiles) =>
+        currentFiles.map((file) =>
+          file.document_id === documentId
+            ? {
+                ...file,
+                status: "Processed",
+                confidence:
+                  extractedConfidence ??
+                  file.confidence,
+              }
+            : file
+        )
+      );
+
+      return extracted;
+    } catch (error) {
+      console.error(
+        `Extraction failed for ${item.name}:`,
+        error
+      );
+
+      const message = getErrorMessage(
+        error,
+        "NLP extraction failed."
+      );
+
+      updateQueueItem(item.id, {
+        status: "Failed",
+        error: message,
+      });
+
+      return null;
+    }
+  };
+
+  const processUploadResult = async (
+    item,
+    uploadResult
+  ) => {
+    const documentId = uploadResult?.document_id;
+
+    if (!documentId) {
+      updateQueueItem(item.id, {
+        status: "Failed",
+        error:
+          "Backend did not return a document ID.",
+      });
+      return;
+    }
+
+    const confidence = getConfidenceNumber(
+      uploadResult?.confidence
+    );
+
+    updateQueueItem(item.id, {
+      status: "Uploaded",
+      document_id: documentId,
+      confidence,
+      error: null,
+    });
+
+    setResult(uploadResult);
+
+    addRecentUpload(
+      item,
+      documentId,
+      confidence,
+      "Uploaded"
+    );
+
+    await runExtraction(item, documentId);
+  };
+
+  const handleBulkResponse = async (response) => {
+    const data = response?.data;
+
+    const results = Array.isArray(data?.results)
+      ? data.results
+      : Array.isArray(data)
+      ? data
+      : [];
+
+    if (!results.length) {
+      throw new Error(
+        "Backend did not return any upload results."
+      );
+    }
+
+    for (const result of results) {
+      const returnedFilename =
+        result?.filename ||
+        result?.file_name ||
+        result?.name;
+
+      let item = queue.find(
+        (queueItem) =>
+          queueItem.name === returnedFilename
+      );
+
+      if (!item) {
+        item = queue.find(
+          (queueItem) =>
+            queueItem.status === "Uploading"
+        );
+      }
+
+      if (!item) continue;
+
+      if (result?.duplicate === true) {
+        updateQueueItem(item.id, {
+          status: "Duplicate",
+          duplicate: true,
+          error:
+            result?.message ||
+            "This document has already been uploaded.",
+          document_id:
+            result?.document_id || null,
+        });
+
+        setConfirmation({
+          type: "duplicate",
+          queueId: item.id,
+          name: item.name,
+          message:
+            result?.message ||
+            "This document has already been uploaded.",
+          existingFilename:
+            result?.filename ||
+            result?.existing_filename ||
+            null,
+        });
+
+        continue;
+      }
+
+      if (
+        result?.newer_version === true ||
+        result?.requires_confirmation === true
+      ) {
+        updateQueueItem(item.id, {
+          status: "Needs Confirmation",
+          newer_version: true,
+          existing_document_id:
+            result?.existing_document_id || null,
+          existing_filename:
+            result?.existing_filename || null,
+          reference_number:
+            result?.reference_number || null,
+          error:
+            result?.message ||
+            "An existing document was found.",
+        });
+
+        setConfirmation({
+          type: "replacement",
+          queueId: item.id,
+          name: item.name,
+          existingDocumentId:
+            result?.existing_document_id,
+          existingFilename:
+            result?.existing_filename,
+          referenceNumber:
+            result?.reference_number,
+          message:
+            result?.message ||
+            "A document with the same reference number already exists.",
+        });
+
+        continue;
+      }
+
+      await processUploadResult(item, result);
+    }
+  };
 
   const processQueue = async () => {
     if (processingQueue || !queue.length) return;
 
+    const itemsToUpload = queue.filter(
+      (item) =>
+        item.status === "Queued" ||
+        item.status === "Failed"
+    );
+
+    if (!itemsToUpload.length) return;
+
     setProcessingQueue(true);
-    setError(null);
     setStatus("uploading");
+    setError(null);
+
+    itemsToUpload.forEach((item) =>
+      updateQueueItem(item.id, {
+        status: "Uploading",
+        error: null,
+      })
+    );
 
     try {
-      for (const item of queue) {
-        if (item.status === "Processed") continue;
+      const files = itemsToUpload.map(
+        (item) => item.file
+      );
 
-        updateQueueItem(item.id, {
-          status: "Uploading",
-          error: null,
-        });
+      const response = await uploadDocument(files);
 
-        let uploaded;
-
-        try {
-          uploaded = await uploadSingleDocument(item);
-        } catch (err) {
-          console.error(`Upload failed for ${item.name}:`, err);
-
-          updateQueueItem(item.id, {
-            status: "Failed",
-            error:
-              err.response?.data?.detail ||
-              err.message ||
-              "Upload failed.",
-          });
-
-          continue;
-        }
-
-        setResult(uploaded);
-
-        updateQueueItem(item.id, {
-          status: "Uploaded",
-          document_id: uploaded.document_id,
-          confidence: uploaded.confidence,
-          error: null,
-        });
-
-        addRecentUpload(
-          item,
-          uploaded,
-          "Uploaded",
-          uploaded.confidence
-        );
-
-        updateQueueItem(item.id, { status: "Extracting" });
-        setStatus("extracting");
-
-        let extracted;
-
-        try {
-          const response = await extractDocument(uploaded.document_id);
-          extracted = response.data;
-          setExtraction(extracted);
-        } catch (err) {
-          console.error(`Extraction failed for ${item.name}:`, err);
-
-          updateQueueItem(item.id, {
-            status: "Failed",
-            error:
-              err.response?.data?.detail ||
-              err.message ||
-              "NLP extraction failed.",
-          });
-
-          continue;
-        }
-
-        const nlpConfidence = Number(
-          extracted?.document?.extraction_confidence ??
-          extracted?.extraction_confidence ??
-          extracted?.confidence
-        );
-
-        const confidence = Number.isFinite(nlpConfidence)
-          ? nlpConfidence
-          : null;
-
-        updateQueueItem(item.id, {
-          status: "Processed",
-          confidence: confidence ?? uploaded.confidence,
-          error: null,
-        });
-
-        setUploadedFiles((files) =>
-          files.map((file) =>
-            file.document_id === uploaded.document_id
-              ? {
-                  ...file,
-                  status: "Processed",
-                  confidence: confidence ?? file.confidence,
-                }
-              : file
-          )
-        );
-
-        showToast(`${item.name} processed successfully`);
-      }
+      await handleBulkResponse(response);
 
       setStatus("done");
       showToast("Queue processing completed");
-    } catch (err) {
-      console.error("Queue processing failed:", err);
+    } catch (error) {
+      console.error(
+        "Bulk upload failed:",
+        error
+      );
+
+      const message = getErrorMessage(
+        error,
+        "Bulk upload failed."
+      );
 
       setStatus("error");
-      setError(
-        err.response?.data?.detail ||
-        err.message ||
-        "Queue processing failed."
+      setError(message);
+
+      setQueue((currentQueue) =>
+        currentQueue.map((item) =>
+          item.status === "Uploading"
+            ? {
+                ...item,
+                status: "Failed",
+                error: message,
+              }
+            : item
+        )
       );
     } finally {
       setProcessingQueue(false);
     }
   };
 
-  const clearCompleted = () => {
-    if (!processingQueue)
-      setQueue((q) => q.filter((x) => x.status !== "Processed"));
-  };
+  const handleReplace = async () => {
+    if (
+      !confirmation ||
+      confirmation.type !== "replacement"
+    ) {
+      return;
+    }
 
-  const retryFailedItem = (id) =>
-    setQueue((q) =>
-      q.map((x) =>
-        x.id === id
-          ? { ...x, status: "Queued", error: null }
-          : x
-      )
+    const queueItem = queue.find(
+      (item) =>
+        item.id === confirmation.queueId
     );
 
-  const queuedCount = queue.filter((x) => x.status === "Queued").length;
-  const processedCount = queue.filter(
-    (x) => x.status === "Processed"
+    if (!queueItem) {
+      setConfirmation(null);
+      return;
+    }
+
+    if (!confirmation.existingDocumentId) {
+      setError(
+        "The backend did not provide the existing document ID required for replacement."
+      );
+      setConfirmation(null);
+      return;
+    }
+
+    setConfirmation((current) =>
+      current
+        ? { ...current, replacing: true }
+        : current
+    );
+
+    updateQueueItem(queueItem.id, {
+      status: "Replacing",
+      error: null,
+    });
+
+    try {
+      const response = await replaceDocument(
+        confirmation.existingDocumentId,
+        queueItem.file
+      );
+
+      const replacement = response?.data;
+
+      const documentId =
+        replacement?.document_id ||
+        confirmation.existingDocumentId;
+
+      const confidence = getConfidenceNumber(
+        replacement?.confidence
+      );
+
+      updateQueueItem(queueItem.id, {
+        status: "Replaced",
+        document_id: documentId,
+        confidence,
+        error: null,
+      });
+
+      addRecentUpload(
+        queueItem,
+        documentId,
+        confidence,
+        "Replaced"
+      );
+
+      setResult(replacement);
+      setConfirmation(null);
+
+      showToast(
+        "Existing document replaced successfully"
+      );
+
+      await runExtraction(
+        queueItem,
+        documentId
+      );
+
+      setStatus("done");
+    } catch (error) {
+      console.error(
+        "Document replacement failed:",
+        error
+      );
+
+      const message = getErrorMessage(
+        error,
+        "Unable to replace the existing document."
+      );
+
+      updateQueueItem(queueItem.id, {
+        status: "Failed",
+        error: message,
+      });
+
+      setConfirmation(null);
+      setStatus("error");
+      setError(message);
+    }
+  };
+
+  const handleCancelReplacement = () => {
+    if (!confirmation) return;
+
+    if (confirmation.type === "replacement") {
+      updateQueueItem(
+        confirmation.queueId,
+        {
+          status: "Skipped",
+          error:
+            "Replacement cancelled by user.",
+        }
+      );
+    }
+
+    setConfirmation(null);
+  };
+
+  const clearCompleted = () => {
+    if (processingQueue) return;
+
+    setQueue((currentQueue) =>
+      currentQueue.filter(
+        (item) =>
+          item.status !== "Processed" &&
+          item.status !== "Replaced" &&
+          item.status !== "Duplicate"
+      )
+    );
+  };
+
+  const retryFailedItem = (id) => {
+    if (processingQueue) return;
+
+    updateQueueItem(id, {
+      status: "Queued",
+      error: null,
+      duplicate: false,
+      newer_version: false,
+    });
+  };
+
+  const queuedCount = queue.filter(
+    (item) => item.status === "Queued"
   ).length;
-  const failedCount = queue.filter((x) => x.status === "Failed").length;
+
+  const processedCount = queue.filter(
+    (item) =>
+      item.status === "Processed" ||
+      item.status === "Replaced"
+  ).length;
+
+  const failedCount = queue.filter(
+    (item) =>
+      item.status === "Failed" ||
+      item.status === "Duplicate"
+  ).length;
 
   return (
     <div className="min-h-full bg-[#fafbff] px-5 py-5">
@@ -276,15 +661,19 @@ export default function Upload() {
         <h1 className="text-[24px] font-bold leading-tight text-[#061f3d]">
           Upload & Analyze Documents
         </h1>
+
         <p className="mt-1 text-[11px] text-slate-500">
-          Upload KMRL documents and process them through OCR and AI extraction.
+          Upload KMRL documents and process
+          them through OCR and AI extraction.
         </p>
       </div>
 
       <label
         htmlFor="document-upload"
         className={`group flex h-[190px] cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-slate-300 bg-white transition hover:border-[#568fe8] hover:bg-[#fcfdff] ${
-          processingQueue ? "pointer-events-none opacity-60" : ""
+          processingQueue
+            ? "pointer-events-none opacity-60"
+            : ""
         }`}
       >
         <input
@@ -292,7 +681,7 @@ export default function Upload() {
           type="file"
           accept=".pdf"
           multiple
-          hidden
+          className="hidden"
           onChange={handleFileChange}
           disabled={processingQueue}
         />
@@ -327,7 +716,9 @@ export default function Upload() {
           Browse Files
         </span>
 
-        <p className="mt-2.5 text-[8px] text-slate-400">PDF only</p>
+        <p className="mt-2.5 text-[8px] text-slate-400">
+          PDF only
+        </p>
       </label>
 
       {status === "error" && error && (
@@ -344,7 +735,8 @@ export default function Upload() {
               Processing Queue
             </h2>
             <p className="text-[7px] text-slate-400">
-              Files are processed from top to bottom
+              Files are processed from top to
+              bottom
             </p>
           </div>
 
@@ -353,7 +745,10 @@ export default function Upload() {
               <button
                 type="button"
                 onClick={clearCompleted}
-                disabled={processingQueue || !processedCount}
+                disabled={
+                  processingQueue ||
+                  processedCount === 0
+                }
                 className="text-[8px] font-medium text-slate-400 hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Clear completed
@@ -361,42 +756,54 @@ export default function Upload() {
             )}
 
             <span className="rounded-full bg-[#eef4ff] px-2 py-0.5 text-[7px] font-semibold text-[#0056a6]">
-              {queue.length} {queue.length === 1 ? "file" : "files"}
+              {queue.length}{" "}
+              {queue.length === 1
+                ? "file"
+                : "files"}
             </span>
           </div>
         </div>
 
         {!queue.length ? (
           <div className="px-3.5 py-8 text-center">
-            <FileText size={20} className="mx-auto text-slate-300" />
+            <FileText
+              size={20}
+              className="mx-auto text-slate-300"
+            />
+
             <p className="mt-2 text-[9px] font-medium text-slate-500">
               Queue is empty
             </p>
+
             <p className="mt-1 text-[8px] text-slate-400">
-              Select multiple PDFs above to create a processing queue.
+              Select multiple PDFs above to
+              create a processing queue.
             </p>
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-[28px_1.8fr_0.7fr_0.7fr_90px] border-b border-slate-200 bg-[#fcfcfd] px-3.5 py-2">
-              {["#", "Document", "Confidence", "Status", "Order"].map(
-                (title) => (
-                  <span
-                    key={title}
-                    className={`text-[7px] font-medium uppercase tracking-wide text-slate-500 ${
-                      title === "Order" ? "text-center" : ""
-                    }`}
-                  >
-                    {title}
-                  </span>
-                )
-              )}
+            <div className="grid grid-cols-[28px_1.8fr_0.7fr_0.8fr_90px] border-b border-slate-200 bg-[#fcfcfd] px-3.5 py-2">
+              <span className="text-[7px] font-medium uppercase tracking-wide text-slate-400">
+                #
+              </span>
+              <span className="text-[7px] font-medium uppercase tracking-wide text-slate-500">
+                Document
+              </span>
+              <span className="text-[7px] font-medium uppercase tracking-wide text-slate-500">
+                Confidence
+              </span>
+              <span className="text-[7px] font-medium uppercase tracking-wide text-slate-500">
+                Status
+              </span>
+              <span className="text-center text-[7px] font-medium uppercase tracking-wide text-slate-500">
+                Order
+              </span>
             </div>
 
             {queue.map((item, index) => (
               <div
                 key={item.id}
-                className="grid grid-cols-[28px_1.8fr_0.7fr_0.7fr_90px] items-center border-b border-slate-100 px-3.5 py-2.5 last:border-b-0"
+                className="grid grid-cols-[28px_1.8fr_0.7fr_0.8fr_90px] items-center border-b border-slate-100 px-3.5 py-2.5 last:border-b-0"
               >
                 <span className="text-[8px] font-semibold text-slate-400">
                   {index + 1}
@@ -407,6 +814,7 @@ export default function Upload() {
                     size={13}
                     className="shrink-0 text-slate-300"
                   />
+
                   <FileText
                     size={14}
                     className="shrink-0 text-red-500"
@@ -416,9 +824,11 @@ export default function Upload() {
                     <p className="truncate text-[9px] font-medium text-[#173a61]">
                       {item.name}
                     </p>
+
                     <p className="text-[7px] text-slate-400">
                       {item.size}
                     </p>
+
                     {item.error && (
                       <p className="mt-0.5 truncate text-[7px] text-red-500">
                         {item.error}
@@ -436,27 +846,63 @@ export default function Upload() {
                       : "text-green-600"
                   }`}
                 >
-                  {formatConfidence(item.confidence)}
+                  {formatConfidence(
+                    item.confidence
+                  )}
                 </span>
 
                 <div>
                   <span
                     className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[7px] font-medium ${
-                      statusClass[item.status] || statusClass.Queued
+                      item.status === "Processed" ||
+                      item.status === "Replaced"
+                        ? "bg-[#e8f0ed] text-[#315b50]"
+                        : item.status === "Failed" ||
+                          item.status === "Duplicate"
+                        ? "bg-red-50 text-red-600"
+                        : item.status ===
+                          "Needs Confirmation"
+                        ? "bg-orange-50 text-orange-600"
+                        : item.status === "Replacing"
+                        ? "bg-purple-50 text-purple-600"
+                        : item.status === "Uploading"
+                        ? "bg-blue-50 text-blue-600"
+                        : item.status === "Extracting"
+                        ? "bg-purple-50 text-purple-600"
+                        : "bg-slate-100 text-slate-500"
                     }`}
                   >
-                    {["Uploading", "Extracting"].includes(item.status) ? (
-                      <Loader2 size={8} className="animate-spin" />
-                    ) : item.status === "Processed" ? (
+                    {[
+                      "Uploading",
+                      "Extracting",
+                      "Replacing",
+                    ].includes(item.status) ? (
+                      <Loader2
+                        size={8}
+                        className="animate-spin"
+                      />
+                    ) : item.status ===
+                        "Processed" ||
+                      item.status === "Replaced" ? (
                       <Check size={8} />
+                    ) : item.status ===
+                        "Duplicate" ||
+                      item.status ===
+                        "Needs Confirmation" ? (
+                      <AlertCircle size={8} />
                     ) : null}
+
                     {item.status}
                   </span>
 
                   {item.status === "Failed" && (
                     <button
                       type="button"
-                      onClick={() => retryFailedItem(item.id)}
+                      onClick={() =>
+                        retryFailedItem(
+                          item.id
+                        )
+                      }
                       disabled={processingQueue}
                       className="ml-1 text-[7px] font-semibold text-red-500 hover:text-red-700"
                     >
@@ -469,8 +915,16 @@ export default function Upload() {
                   <button
                     type="button"
                     title="Move up"
-                    disabled={processingQueue || index === 0}
-                    onClick={() => moveQueueItem(index, "up")}
+                    disabled={
+                      processingQueue ||
+                      index === 0
+                    }
+                    onClick={() =>
+                      moveQueueItem(
+                        index,
+                        "up"
+                      )
+                    }
                     className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30"
                   >
                     <ArrowUp size={11} />
@@ -480,9 +934,16 @@ export default function Upload() {
                     type="button"
                     title="Move down"
                     disabled={
-                      processingQueue || index === queue.length - 1
+                      processingQueue ||
+                      index ===
+                        queue.length - 1
                     }
-                    onClick={() => moveQueueItem(index, "down")}
+                    onClick={() =>
+                      moveQueueItem(
+                        index,
+                        "down"
+                      )
+                    }
                     className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30"
                   >
                     <ArrowDown size={11} />
@@ -492,7 +953,11 @@ export default function Upload() {
                     type="button"
                     title="Remove"
                     disabled={processingQueue}
-                    onClick={() => removeFromQueue(item.id)}
+                    onClick={() =>
+                      removeFromQueue(
+                        item.id
+                      )
+                    }
                     className="flex h-6 w-6 items-center justify-center rounded border border-slate-200 text-slate-400 hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-30"
                   >
                     <X size={11} />
@@ -505,15 +970,23 @@ export default function Upload() {
               <div className="flex items-center gap-3 text-[7px] text-slate-400">
                 <span>
                   Queued:{" "}
-                  <b className="text-slate-600">{queuedCount}</b>
+                  <b className="text-slate-600">
+                    {queuedCount}
+                  </b>
                 </span>
+
                 <span>
                   Processed:{" "}
-                  <b className="text-green-600">{processedCount}</b>
+                  <b className="text-green-600">
+                    {processedCount}
+                  </b>
                 </span>
+
                 <span>
                   Failed:{" "}
-                  <b className="text-red-500">{failedCount}</b>
+                  <b className="text-red-500">
+                    {failedCount}
+                  </b>
                 </span>
               </div>
 
@@ -521,18 +994,26 @@ export default function Upload() {
                 type="button"
                 onClick={processQueue}
                 disabled={
-                  processingQueue || !queue.length || queuedCount === 0
+                  processingQueue ||
+                  queue.length === 0 ||
+                  queuedCount === 0
                 }
                 className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[#003b73] px-4 text-[9px] font-semibold text-white transition hover:bg-[#064b8c] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {processingQueue ? (
                   <>
-                    <Loader2 size={12} className="animate-spin" />
+                    <Loader2
+                      size={12}
+                      className="animate-spin"
+                    />
                     Processing...
                   </>
                 ) : (
                   <>
-                    <Play size={11} fill="currentColor" />
+                    <Play
+                      size={11}
+                      fill="currentColor"
+                    />
                     Process Queue
                   </>
                 )}
@@ -542,61 +1023,93 @@ export default function Upload() {
         )}
       </section>
 
-      {result && !processingQueue && status !== "error" && (
-        <div className="mt-3 rounded-md border border-green-200 bg-green-50 px-3.5 py-3">
-          <div className="flex items-center gap-2 text-[11px] font-semibold text-green-800">
-            <Check size={14} />
-            Uploaded — Document #{result.document_id}
-          </div>
-
-          <p className="mt-1 text-[9px] text-green-700">
-            OCR confidence: {formatConfidence(result.confidence)}
-          </p>
-
-          {status === "done" && extraction && (
-            <div className="mt-3 border-t border-green-200 pt-3">
-              <p className="text-[10px] font-semibold text-[#062f5c]">
-                Type: {extraction.document?.doc_type || "Unclassified"}
-              </p>
-
-              {extraction.document?.summary && (
-                <p className="mt-1 text-[9px] text-slate-600">
-                  {extraction.document.summary}
-                </p>
-              )}
-
-              {extraction.risk?.has_deadline ? (
-                <p className="mt-1 text-[9px] text-slate-600">
-                  Deadline: {String(extraction.risk.deadline_date)} · Urgency:{" "}
-                  <span className="font-semibold">
-                    {extraction.risk.urgency}
-                  </span>
-                </p>
-              ) : (
-                <p className="mt-1 text-[9px] text-slate-500">
-                  No compliance deadline detected.
-                </p>
-              )}
-
-              <div className="mt-2 flex gap-2">
-                <button
-                  onClick={() => navigate("/compliance")}
-                  className="rounded-md border border-[#003b73] px-3 py-1.5 text-[9px] font-semibold text-[#003b73] hover:bg-[#eef4ff]"
-                >
-                  View in Compliance
-                </button>
-
-                <button
-                  onClick={() => navigate("/documents")}
-                  className="rounded-md border border-[#003b73] px-3 py-1.5 text-[9px] font-semibold text-[#003b73] hover:bg-[#eef4ff]"
-                >
-                  View in Documents
-                </button>
-              </div>
+      {result &&
+        !processingQueue &&
+        status !== "error" && (
+          <div className="mt-3 rounded-md border border-green-200 bg-green-50 px-3.5 py-3">
+            <div className="flex items-center gap-2 text-[11px] font-semibold text-green-800">
+              <Check size={14} />
+              Document processed — #
+              {result.document_id}
             </div>
-          )}
-        </div>
-      )}
+
+            <p className="mt-1 text-[9px] text-green-700">
+              OCR confidence:{" "}
+              {formatConfidence(
+                result.confidence
+              )}
+            </p>
+
+            {extraction && (
+              <div className="mt-3 border-t border-green-200 pt-3">
+                <p className="text-[10px] font-semibold text-[#062f5c]">
+                  Type:{" "}
+                  {extraction.document
+                    ?.doc_type ||
+                    "Unclassified"}
+                </p>
+
+                {extraction.document?.summary && (
+                  <p className="mt-1 text-[9px] text-slate-600">
+                    {
+                      extraction.document
+                        .summary
+                    }
+                  </p>
+                )}
+
+                {extraction.risk
+                  ?.has_deadline ? (
+                  <p className="mt-1 text-[9px] text-slate-600">
+                    Deadline:{" "}
+                    {String(
+                      extraction.risk
+                        .deadline_date
+                    )}{" "}
+                    · Urgency:{" "}
+                    <span className="font-semibold">
+                      {
+                        extraction.risk
+                          .urgency
+                      }
+                    </span>
+                  </p>
+                ) : (
+                  <p className="mt-1 text-[9px] text-slate-500">
+                    No compliance deadline
+                    detected.
+                  </p>
+                )}
+
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate(
+                        "/compliance"
+                      )
+                    }
+                    className="rounded-md border border-[#003b73] px-3 py-1.5 text-[9px] font-semibold text-[#003b73] hover:bg-[#eef4ff]"
+                  >
+                    View in Compliance
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate(
+                        "/documents"
+                      )
+                    }
+                    className="rounded-md border border-[#003b73] px-3 py-1.5 text-[9px] font-semibold text-[#003b73] hover:bg-[#eef4ff]"
+                  >
+                    View in Documents
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
       <section className="mt-4 overflow-hidden rounded-md border border-slate-200 bg-white">
         <div className="flex h-[39px] items-center justify-between border-b border-slate-200 bg-[#fafbff] px-3.5">
@@ -606,21 +1119,26 @@ export default function Upload() {
         </div>
 
         <div className="grid grid-cols-[1.6fr_0.9fr_0.6fr_0.7fr_0.6fr] border-b border-slate-200 bg-[#fcfcfd] px-3.5 py-2">
-          {["Document", "Uploaded", "Size", "Confidence", "Status"].map(
-            (title) => (
-              <span
-                key={title}
-                className="text-[7px] font-medium uppercase tracking-wide text-slate-500"
-              >
-                {title}
-              </span>
-            )
-          )}
+          {[
+            "Document",
+            "Uploaded",
+            "Size",
+            "Confidence",
+            "Status",
+          ].map((heading) => (
+            <span
+              key={heading}
+              className="text-[7px] font-medium uppercase tracking-wide text-slate-500"
+            >
+              {heading}
+            </span>
+          ))}
         </div>
 
-        {!uploadedFiles.length ? (
+        {uploadedFiles.length === 0 ? (
           <div className="px-3.5 py-6 text-center text-[9px] text-slate-400">
-            No documents uploaded this session yet.
+            No documents uploaded this
+            session yet.
           </div>
         ) : (
           uploadedFiles.map((file) => (
@@ -634,31 +1152,42 @@ export default function Upload() {
                   strokeWidth={1.8}
                   className="text-red-500"
                 />
+
                 <span className="truncate text-[9px] font-medium text-[#173a61]">
                   {file.name}
                 </span>
               </div>
 
-              <span className="text-[8px] text-slate-500">{file.date}</span>
-              <span className="text-[8px] text-slate-500">{file.size}</span>
+              <span className="text-[8px] text-slate-500">
+                {file.date}
+              </span>
+
+              <span className="text-[8px] text-slate-500">
+                {file.size}
+              </span>
 
               <span
                 className={`text-[8px] font-semibold ${
                   file.confidence === null
                     ? "text-slate-400"
-                    : Number(file.confidence) < 0.7
+                    : Number(file.confidence) <
+                      0.7
                     ? "text-orange-600"
                     : "text-green-600"
                 }`}
               >
-                {formatConfidence(file.confidence)}
+                {formatConfidence(
+                  file.confidence
+                )}
               </span>
 
               <span
                 className={`inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[7px] font-medium ${
-                  file.status === "Processed"
+                  file.status === "Processed" ||
+                  file.status === "Replaced"
                     ? "bg-[#e8f0ed] text-[#315b50]"
-                    : file.status === "Failed"
+                    : file.status === "Failed" ||
+                      file.status === "Duplicate"
                     ? "bg-red-50 text-red-600"
                     : "bg-blue-50 text-blue-700"
                 }`}
@@ -669,6 +1198,188 @@ export default function Upload() {
           ))
         )}
       </section>
+
+      {confirmation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
+          <div className="w-full max-w-[430px] rounded-xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <div
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                  confirmation.type ===
+                  "duplicate"
+                    ? "bg-orange-50"
+                    : "bg-blue-50"
+                }`}
+              >
+                {confirmation.type ===
+                "duplicate" ? (
+                  <AlertCircle
+                    size={19}
+                    className="text-orange-500"
+                  />
+                ) : (
+                  <RefreshCw
+                    size={19}
+                    className="text-blue-500"
+                  />
+                )}
+              </div>
+
+              <div className="min-w-0">
+                <h3 className="text-[13px] font-bold text-[#062f5c]">
+                  {confirmation.type ===
+                  "duplicate"
+                    ? "Document Already Exists"
+                    : "Existing Document Found"}
+                </h3>
+
+                <p className="mt-1 text-[9px] leading-relaxed text-slate-500">
+                  {confirmation.message}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={
+                  confirmation.type ===
+                  "duplicate"
+                    ? () =>
+                        setConfirmation(
+                          null
+                        )
+                    : handleCancelReplacement
+                }
+                disabled={
+                  confirmation.replacing
+                }
+                className="ml-auto shrink-0 text-slate-400 transition hover:text-slate-600 disabled:opacity-40"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5">
+              <p className="text-[8px] font-medium uppercase tracking-wide text-slate-400">
+                Uploaded file
+              </p>
+
+              <p className="mt-1 truncate text-[10px] font-semibold text-[#173a61]">
+                {confirmation.name}
+              </p>
+            </div>
+
+            {confirmation.type ===
+              "replacement" && (
+              <>
+                <div className="mt-2 rounded-md border border-blue-100 bg-blue-50 px-3 py-2.5">
+                  <p className="text-[8px] font-medium uppercase tracking-wide text-blue-500">
+                    Existing document
+                  </p>
+
+                  <p className="mt-1 truncate text-[10px] font-semibold text-blue-800">
+                    {confirmation.existingFilename ||
+                      "Existing document"}
+                  </p>
+
+                  {confirmation.referenceNumber && (
+                    <p className="mt-1 text-[8px] text-blue-600">
+                      Reference:{" "}
+                      <span className="font-semibold">
+                        {
+                          confirmation.referenceNumber
+                        }
+                      </span>
+                    </p>
+                  )}
+                </div>
+
+                <p className="mt-3 text-[9px] leading-relaxed text-slate-500">
+                  This appears to be a newer
+                  version of an existing
+                  document. Do you want to
+                  replace the existing
+                  document?
+                </p>
+              </>
+            )}
+
+            {confirmation.type ===
+              "duplicate" && (
+              <p className="mt-3 text-[9px] leading-relaxed text-slate-500">
+                This exact PDF is already
+                present in the system. It will
+                not be uploaded again.
+              </p>
+            )}
+
+            <div className="mt-5 flex justify-end gap-2">
+              {confirmation.type ===
+              "duplicate" ? (
+                <label
+                  htmlFor="different-file"
+                  className="inline-flex cursor-pointer items-center rounded-md bg-[#003b73] px-3 py-2 text-[9px] font-semibold text-white transition hover:bg-[#064b8c]"
+                >
+                  <input
+                    id="different-file"
+                    type="file"
+                    accept=".pdf"
+                    className="hidden"
+                    onChange={
+                      handleDifferentFile
+                    }
+                  />
+                  Choose Different File
+                </label>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={
+                      handleCancelReplacement
+                    }
+                    disabled={
+                      confirmation.replacing
+                    }
+                    className="rounded-md border border-slate-200 bg-white px-3 py-2 text-[9px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={
+                      handleReplace
+                    }
+                    disabled={
+                      confirmation.replacing
+                    }
+                    className="inline-flex items-center gap-1.5 rounded-md bg-[#003b73] px-3 py-2 text-[9px] font-semibold text-white transition hover:bg-[#064b8c] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {confirmation.replacing ? (
+                      <>
+                        <Loader2
+                          size={11}
+                          className="animate-spin"
+                        />
+                        Replacing...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw
+                          size={11}
+                        />
+                        Replace Existing
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+export default Upload;
