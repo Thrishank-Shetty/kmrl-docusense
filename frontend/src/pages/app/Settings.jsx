@@ -100,7 +100,7 @@ export default function Settings() {
     "h-11 w-full rounded-lg border border-[#D7DEE8] bg-white px-3 text-[15px] font-semibold text-[#111827] outline-none focus:border-[#0E4B9E] focus:ring-2 focus:ring-[#DCEBFA] disabled:bg-[#F8FAFC] disabled:text-[#475569]";
 
   return (
-    <div className="min-h-screen bg-[#DCEBFA] px-8 py-5">
+    <div className="min-h-screen bg-[#fafbff] px-8 py-5">
       {/* PAGE TITLE */}
       <h1 className="mb-5 text-[32px] font-bold leading-tight text-[#111827]">
         Profile

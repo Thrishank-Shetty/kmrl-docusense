@@ -120,3 +120,6 @@ export const getDocumentChanges = (
 
 export const getComplianceCalendar = (year, month) =>
   api.get("/compliance/calendar", { params: { year, month } });
+
+export const getRecentActivity = (limit = 10) =>
+  api.get("/analytics/activity/recent", { params: { limit } });
