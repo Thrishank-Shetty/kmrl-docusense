@@ -1,20 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  CalendarDays,
-  Check,
-  ChevronDown,
-  Download,
-  FileText,
-  Filter,
-  Gavel,
-  MoreVertical,
-  TrendingDown,
-  TrendingUp,
-  AlertTriangle,
-  BarChart3,
-  Clock3,
-  RefreshCw,
-} from "lucide-react";
+import {CalendarDays,Check,ChevronDown,Download,FileText,Filter,Gavel,MoreVertical,TrendingDown,TrendingUp,AlertTriangle,BarChart3,Clock3,RefreshCw,} from "lucide-react";
 import { getAnalyticsSummary } from "../../lib/api";
 import { useToast } from "../../components/common/useToast";
 
@@ -24,6 +9,15 @@ const icons = {
   time: Clock3,
   review: Gavel,
 };
+
+const colors = [
+  "#0c2244",
+  "#1369c6",
+  "#50d5a4",
+  "#f5b94c",
+  "#8b5cf6",
+  "#ef6c6c",
+];
 
 export default function Analytics() {
   const { showToast } = useToast();
@@ -38,19 +32,15 @@ export default function Analytics() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [exported, setExported] = useState(false);
 
-  // ---------------------------------------------------------
-  // LOAD ANALYTICS
-  // ---------------------------------------------------------
-
   useEffect(() => {
     let cancelled = false;
 
     const fetchAnalytics = async () => {
       try {
-        const response = await getAnalyticsSummary();
+        const { data } = await getAnalyticsSummary();
 
         if (!cancelled) {
-          setAnalytics(response.data);
+          setAnalytics(data);
         }
       } catch (err) {
         console.error(err);
@@ -75,18 +65,14 @@ export default function Analytics() {
     };
   }, []);
 
-  // ---------------------------------------------------------
-  // REFRESH
-  // ---------------------------------------------------------
-
   const refreshAnalytics = async () => {
     setRefreshing(true);
     setError(null);
 
     try {
-      const response = await getAnalyticsSummary();
+      const { data } = await getAnalyticsSummary();
 
-      setAnalytics(response.data);
+      setAnalytics(data);
       showToast("Analytics refreshed");
     } catch (err) {
       console.error(err);
@@ -102,10 +88,6 @@ export default function Analytics() {
     }
   };
 
-  // ---------------------------------------------------------
-  // EXPORT
-  // ---------------------------------------------------------
-
   const exportReport = () => {
     setExported(true);
 
@@ -118,10 +100,6 @@ export default function Analytics() {
       "info"
     );
   };
-
-  // ---------------------------------------------------------
-  // HELPERS
-  // ---------------------------------------------------------
 
   const formatWeek = (week) => {
     if (!week) return "";
@@ -139,26 +117,17 @@ export default function Analytics() {
   };
 
   const getUrgencyClass = (urgency) => {
-    const value = urgency?.toLowerCase();
-
-    if (value === "critical") {
-      return "bg-red-50 text-red-600";
+    switch (urgency?.toLowerCase()) {
+      case "critical":
+        return "bg-red-50 text-red-600";
+      case "high":
+        return "bg-orange-50 text-orange-600";
+      case "medium":
+        return "bg-yellow-50 text-yellow-600";
+      default:
+        return "bg-green-50 text-green-600";
     }
-
-    if (value === "high") {
-      return "bg-orange-50 text-orange-600";
-    }
-
-    if (value === "medium") {
-      return "bg-yellow-50 text-yellow-600";
-    }
-
-    return "bg-green-50 text-green-600";
   };
-
-  // ---------------------------------------------------------
-  // LOADING
-  // ---------------------------------------------------------
 
   if (loading) {
     return (
@@ -179,7 +148,6 @@ export default function Analytics() {
 
           <div className="mt-5 grid grid-cols-[2.1fr_1.1fr] gap-5 max-[960px]:grid-cols-1">
             <div className="h-[340px] animate-pulse rounded-lg border border-slate-200 bg-white" />
-
             <div className="h-[340px] animate-pulse rounded-lg border border-slate-200 bg-white" />
           </div>
 
@@ -188,10 +156,6 @@ export default function Analytics() {
       </div>
     );
   }
-
-  // ---------------------------------------------------------
-  // ERROR
-  // ---------------------------------------------------------
 
   if (error || !analytics) {
     return (
@@ -228,7 +192,6 @@ export default function Analytics() {
                       refreshing ? "animate-spin" : ""
                     }
                   />
-
                   Try Again
                 </button>
               </div>
@@ -238,10 +201,6 @@ export default function Analytics() {
       </div>
     );
   }
-
-  // ---------------------------------------------------------
-  // KPI DATA
-  // ---------------------------------------------------------
 
   const kpis = [
     [
@@ -278,23 +237,25 @@ export default function Analytics() {
   const urgencyCounts = analytics.urgency_counts || [];
   const volumeByWeek = analytics.volume_by_week || [];
 
+  // FIX: normalize count values before calculating chart heights
   const maxVolume = Math.max(
-    ...volumeByWeek.map((item) => item.count),
+    ...volumeByWeek.map(
+      (item) => Number(item.count) || 0
+    ),
     1
   );
 
   const maxUrgency = Math.max(
-    ...urgencyCounts.map((item) => item.count),
+    ...urgencyCounts.map(
+      (item) => Number(item.count) || 0
+    ),
     1
   );
-
-  // ---------------------------------------------------------
-  // MAIN UI
-  // ---------------------------------------------------------
 
   return (
     <div className="min-h-screen bg-[#f7f9fd] text-[#13213a]">
       <main className="mx-auto max-w-[1110px] px-7 pb-[26px] max-[960px]:px-5 max-[720px]:px-4">
+
         {/* HEADER */}
         <section className="flex items-end justify-between gap-6 py-[2px] pb-[21px] max-[720px]:block max-[720px]:pt-[19px]">
           <div>
@@ -373,7 +334,9 @@ export default function Analytics() {
                 }
               />
 
-              {refreshing ? "Refreshing..." : "Refresh"}
+              {refreshing
+                ? "Refreshing..."
+                : "Refresh"}
             </button>
 
             {/* EXPORT */}
@@ -395,10 +358,8 @@ export default function Analytics() {
           {kpis.map(
             ([label, value, change, icon, positive]) => {
               const Icon = icons[icon];
-
               const good =
                 positive || change?.startsWith("-");
-
               const Trend = good
                 ? TrendingUp
                 : TrendingDown;
@@ -447,7 +408,8 @@ export default function Analytics() {
 
         {/* CHARTS */}
         <section className="mb-5 grid grid-cols-[2.1fr_1.1fr] gap-5 max-[960px]:grid-cols-1 max-[720px]:gap-3">
-          {/* VOLUME */}
+
+          {/* VOLUME BAR CHART */}
           <div className="relative rounded-lg border border-[#cbd2df] bg-white p-5">
             <div className="mb-[18px] flex items-center justify-between">
               <div>
@@ -486,7 +448,8 @@ export default function Analytics() {
               </div>
             ) : (
               <div className="relative h-[224px] overflow-hidden rounded-[7px] border border-[#d4dced] bg-[#f0f3fd] px-4 pb-8 pt-5">
-                {/* Grid */}
+
+                {/* GRID */}
                 <div className="absolute inset-[19px_14px_32px] flex flex-col justify-between">
                   {[1, 2, 3, 4].map((i) => (
                     <span
@@ -496,31 +459,37 @@ export default function Analytics() {
                   ))}
                 </div>
 
-                {/* Bars */}
+                {/* BARS */}
                 <div className="absolute inset-[22px_14px_30px] flex items-end gap-[7px]">
-                  {volumeByWeek.map((item) => (
-                    <div
-                      key={item.week}
-                      className="group relative flex h-full flex-1 items-end"
-                    >
+                  {volumeByWeek.map((item) => {
+                    const count =
+                      Number(item.count) || 0;
+
+                    const height = Math.max(
+                      (count / maxVolume) * 100,
+                      5
+                    );
+
+                    return (
                       <div
-                        className="w-full rounded-t-[4px] bg-[#214f82] transition hover:bg-[#1262c2]"
-                        style={{
-                          height: `${Math.max(
-                            (item.count / maxVolume) *
-                              100,
-                            5
-                          )}%`,
-                        }}
-                        title={`${formatWeek(
-                          item.week
-                        )}: ${item.count}`}
-                      />
-                    </div>
-                  ))}
+                        key={item.week}
+                        className="group relative flex h-full flex-1 items-end"
+                      >
+                        <div
+                          className="w-full rounded-t-[4px] bg-[#214f82] transition hover:bg-[#1262c2]"
+                          style={{
+                            height: `${height}%`,
+                          }}
+                          title={`${formatWeek(
+                            item.week
+                          )}: ${count}`}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
 
-                {/* Labels */}
+                {/* LABELS */}
                 <div className="absolute bottom-[6px] left-[14px] right-[14px] flex justify-between gap-2 overflow-hidden text-[8px] text-[#7d8796]">
                   {volumeByWeek.map((item) => (
                     <span
@@ -557,6 +526,7 @@ export default function Analytics() {
               </div>
             ) : (
               <div className="flex items-center gap-6 max-[500px]:flex-col">
+
                 {/* DONUT */}
                 <div className="relative h-[165px] w-[165px] shrink-0">
                   <div
@@ -564,30 +534,24 @@ export default function Analytics() {
                     style={{
                       background: `conic-gradient(${documentTypes
                         .map((item, index, arr) => {
-                          const colors = [
-                            "#0c2244",
-                            "#1369c6",
-                            "#50d5a4",
-                            "#f5b94c",
-                            "#8b5cf6",
-                            "#ef6c6c",
-                          ];
-
                           const start = arr
                             .slice(0, index)
                             .reduce(
                               (sum, current) =>
-                                sum + Number(current.percentage || 0),
+                                sum +
+                                Number(
+                                  current.percentage || 0
+                                ),
                               0
                             );
 
                           const end =
-                            start + Number(item.percentage || 0);
+                            start +
+                            Number(item.percentage || 0);
 
-                          const color =
-                            colors[index % colors.length];
-
-                          return `${color} ${start}% ${end}%`;
+                          return `${
+                            colors[index % colors.length]
+                          } ${start}% ${end}%`;
                         })
                         .join(", ")})`,
                     }}
@@ -606,47 +570,38 @@ export default function Analytics() {
 
                 {/* LEGEND */}
                 <div className="min-w-0 flex-1 space-y-3">
-                  {documentTypes.map((item, index) => {
-                    const colors = [
-                      "#0c2244",
-                      "#1369c6",
-                      "#50d5a4",
-                      "#f5b94c",
-                      "#8b5cf6",
-                      "#ef6c6c",
-                    ];
+                  {documentTypes.map((item, index) => (
+                    <div
+                      key={item.type}
+                      className="flex items-center justify-between gap-3"
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span
+                          className="h-2.5 w-2.5 shrink-0 rounded-full"
+                          style={{
+                            backgroundColor:
+                              colors[
+                                index % colors.length
+                              ],
+                          }}
+                        />
 
-                    return (
-                      <div
-                        key={item.type}
-                        className="flex items-center justify-between gap-3"
-                      >
-                        <div className="flex min-w-0 items-center gap-2">
-                          <span
-                            className="h-2.5 w-2.5 shrink-0 rounded-full"
-                            style={{
-                              backgroundColor:
-                                colors[index % colors.length],
-                            }}
-                          />
-
-                          <span className="truncate text-[10px] font-semibold text-slate-600">
-                            {item.type}
-                          </span>
-                        </div>
-
-                        <div className="flex shrink-0 items-center gap-2">
-                          <span className="text-[9px] text-slate-400">
-                            {item.count}
-                          </span>
-
-                          <span className="text-[10px] font-bold text-slate-700">
-                            {item.percentage}%
-                          </span>
-                        </div>
+                        <span className="truncate text-[10px] font-semibold text-slate-600">
+                          {item.type}
+                        </span>
                       </div>
-                    );
-                  })}
+
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className="text-[9px] text-slate-400">
+                          {item.count}
+                        </span>
+
+                        <span className="text-[10px] font-bold text-slate-700">
+                          {item.percentage}%
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -666,7 +621,10 @@ export default function Analytics() {
               </p>
             </div>
 
-            <Gavel size={19} className="text-[#0861c7]" />
+            <Gavel
+              size={19}
+              className="text-[#0861c7]"
+            />
           </div>
 
           {urgencyCounts.length === 0 ? (
@@ -706,7 +664,8 @@ export default function Analytics() {
                       className="h-full rounded-full bg-[#1369c6]"
                       style={{
                         width: `${Math.max(
-                          (item.count / maxUrgency) *
+                          (Number(item.count) /
+                            maxUrgency) *
                             100,
                           5
                         )}%`,

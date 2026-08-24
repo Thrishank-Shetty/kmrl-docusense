@@ -1,38 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  FileText,
-  Loader2,
-  AlertCircle,
-  ChevronDown,
-  ChevronUp,
-  RefreshCw,
-  UploadCloud,
-  Search,
-  SlidersHorizontal,
-  X,
-  Bot,
-} from "lucide-react";
+import {FileText,Loader2,AlertCircle,ChevronDown,ChevronUp,RefreshCw,UploadCloud,Search,SlidersHorizontal,X,Bot,Pencil,Save,CheckCircle2,ShieldCheck,} from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import {
-  getAllDocuments,
-  getDocumentCompliance,
-} from "../../lib/api";
+import {getAllDocuments,getDocumentCompliance,} from "../../lib/api";
+import api from "../../lib/api";
 import { useToast } from "../../components/common/useToast";
 
 const PAGE_SIZE = 10;
+const REVIEW_THRESHOLD = 0.7;
 
 export default function Documents() {
   const navigate = useNavigate();
   const { showToast } = useToast();
 
   const [documents, setDocuments] = useState([]);
+  const [reviewDocuments, setReviewDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -41,46 +28,60 @@ export default function Documents() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState(null);
 
-  // -------------------------
-  // Helpers
-  // -------------------------
-
-  const getStatus = (doc) => {
-    if (doc.status) return doc.status.toLowerCase();
-    if (doc.doc_type) return "processed";
-    return "pending";
-  };
+  const [editingId, setEditingId] = useState(null);
+  const [editData, setEditData] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [verifyingId, setVerifyingId] = useState(null);
 
   const getConfidence = (doc) => {
-    const value = parseFloat(doc.extraction_confidence);
+    const value = Number(doc.extraction_confidence);
     return Number.isNaN(value) ? null : value;
   };
 
   const getDocumentType = (doc) => doc.doc_type || "Unknown";
 
-  // -------------------------
-  // Load documents
-  // -------------------------
+  const isHumanVerified = (doc) => doc.human_verified === true;
+
+  const isReviewRequired = (doc) => {
+    const confidence = getConfidence(doc);
+
+    return (
+      confidence !== null &&
+      confidence < REVIEW_THRESHOLD &&
+      !isHumanVerified(doc)
+    );
+  };
 
   const loadDocuments = useCallback(
     async (isRefresh = false) => {
-      if (isRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
-
+      isRefresh ? setRefreshing(true) : setLoading(true);
       setError(null);
 
       try {
-        const res = await getAllDocuments();
-        setDocuments(res.data || []);
+        const [documentsResponse, reviewResponse] =
+          await Promise.all([
+            getAllDocuments(),
+            api.get("/documents/review-required"),
+          ]);
 
-        if (isRefresh) {
-          showToast("Documents refreshed");
-        }
+        const allDocuments = Array.isArray(
+          documentsResponse.data
+        )
+          ? documentsResponse.data
+          : documentsResponse.data?.documents || [];
+
+        const reviewDocumentsData = Array.isArray(
+          reviewResponse.data
+        )
+          ? reviewResponse.data
+          : reviewResponse.data?.documents || [];
+
+        setDocuments(allDocuments);
+        setReviewDocuments(reviewDocumentsData);
+
+        if (isRefresh) showToast("Documents refreshed");
       } catch (err) {
-        console.error(err);
+        console.error("Failed to load documents:", err);
 
         setError(
           err.response?.data?.detail ||
@@ -95,56 +96,25 @@ export default function Documents() {
   );
 
   useEffect(() => {
-    let cancelled = false;
+  const timer = setTimeout(() => loadDocuments(), 0);
+  return () => clearTimeout(timer);
+}, [loadDocuments]);
 
-    const fetchDocuments = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const res = await getAllDocuments();
-
-        if (!cancelled) {
-          setDocuments(res.data || []);
-        }
-      } catch (err) {
-        console.error(err);
-
-        if (!cancelled) {
-          setError(
-            err.response?.data?.detail ||
-              "Failed to load documents. Is the backend running?"
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchDocuments();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // -------------------------
-  // Document types
-  // -------------------------
+  const reviewRequiredIds = useMemo(
+    () =>
+      new Set(
+        reviewDocuments.map((doc) => doc.id).filter(Boolean)
+      ),
+    [reviewDocuments]
+  );
 
   const documentTypes = useMemo(() => {
     const types = documents
-      .map((doc) => getDocumentType(doc))
+      .map(getDocumentType)
       .filter((type) => type !== "Unknown");
 
     return ["all", ...new Set(types)];
   }, [documents]);
-
-  // -------------------------
-  // Filter + search + sort
-  // -------------------------
 
   const filteredDocuments = useMemo(() => {
     let result = [...documents];
@@ -172,12 +142,6 @@ export default function Documents() {
     if (typeFilter !== "all") {
       result = result.filter(
         (doc) => getDocumentType(doc) === typeFilter
-      );
-    }
-
-    if (statusFilter !== "all") {
-      result = result.filter(
-        (doc) => getStatus(doc) === statusFilter
       );
     }
 
@@ -221,17 +185,7 @@ export default function Documents() {
     });
 
     return result;
-  }, [
-    documents,
-    search,
-    typeFilter,
-    statusFilter,
-    sortBy,
-  ]);
-
-  // -------------------------
-  // Pagination
-  // -------------------------
+  }, [documents, search, typeFilter, sortBy]);
 
   const totalPages = Math.max(
     1,
@@ -242,21 +196,12 @@ export default function Documents() {
 
   const paginatedDocuments = useMemo(() => {
     const start = (safePage - 1) * PAGE_SIZE;
-
-    return filteredDocuments.slice(
-      start,
-      start + PAGE_SIZE
-    );
+    return filteredDocuments.slice(start, start + PAGE_SIZE);
   }, [filteredDocuments, safePage]);
-
-  // -------------------------
-  // Clear filters
-  // -------------------------
 
   const clearFilters = () => {
     setSearch("");
     setTypeFilter("all");
-    setStatusFilter("all");
     setSortBy("newest");
     setCurrentPage(1);
   };
@@ -264,24 +209,23 @@ export default function Documents() {
   const hasFilters =
     search.trim() ||
     typeFilter !== "all" ||
-    statusFilter !== "all" ||
     sortBy !== "newest";
-
-  // -------------------------
-  // Expand document
-  // -------------------------
 
   const toggleRow = async (id) => {
     if (expandedId === id) {
       setExpandedId(null);
       setDetail(null);
       setDetailError(null);
+      setEditingId(null);
+      setEditData({});
       return;
     }
 
     setExpandedId(id);
     setDetail(null);
     setDetailError(null);
+    setEditingId(null);
+    setEditData({});
     setDetailLoading(true);
 
     try {
@@ -301,18 +245,144 @@ export default function Documents() {
     }
   };
 
-  // -------------------------
-  // Open document in AI Search
-  // -------------------------
+  const startHumanReview = async (event, document) => {
+    event.stopPropagation();
 
-  const openInAiSearch = (e, documentId) => {
-    e.stopPropagation();
-    navigate(`/ai-search?documentId=${documentId}`);
+    const reviewRequired =
+      reviewRequiredIds.has(document.id) ||
+      isReviewRequired(document);
+
+    if (!reviewRequired) return;
+
+    setExpandedId(document.id);
+    setEditingId(document.id);
+    setDetail(null);
+    setDetailError(null);
+
+    setEditData({
+      doc_type: document.doc_type || "",
+      summary: document.summary || "",
+      reference_number: document.reference_number || "",
+      department: document.department || "",
+      issue_date: document.issue_date || "",
+      expiry_date: document.expiry_date || "",
+      amount: document.amount ?? "",
+      vendor_party:
+        document.vendor_party ||
+        document.vendor ||
+        document.party_name ||
+        "",
+      asset_id: document.asset_id || "",
+    });
+
+    try {
+      const response = await api.get(
+        `/documents/${document.id}`
+      );
+
+      const latest = response.data;
+
+      if (latest) {
+        setEditData({
+          doc_type: latest.doc_type || "",
+          summary: latest.summary || "",
+          reference_number:
+            latest.reference_number || "",
+          department: latest.department || "",
+          issue_date: latest.issue_date || "",
+          expiry_date: latest.expiry_date || "",
+          amount: latest.amount ?? "",
+          vendor_party:
+            latest.vendor_party ||
+            latest.vendor ||
+            latest.party_name ||
+            "",
+          asset_id: latest.asset_id || "",
+        });
+      }
+    } catch (err) {
+      console.warn(
+        "Could not fetch individual document details:",
+        err
+      );
+    }
   };
 
-  // -------------------------
-  // Loading state
-  // -------------------------
+  const updateEditField = (field, value) => {
+    setEditData((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+    setEditData({});
+  };
+
+  const handleSave = async (documentId) => {
+    if (!documentId || saving) return;
+
+    try {
+      setSaving(true);
+
+      await api.put(`/documents/${documentId}`, editData);
+
+      showToast(
+        "Document information updated successfully"
+      );
+
+      setEditingId(null);
+      setEditData({});
+      await loadDocuments(true);
+    } catch (err) {
+      console.error("Failed to update document:", err);
+
+      const message =
+        err.response?.data?.detail ||
+        "Failed to save document changes.";
+
+      setError(message);
+      showToast(message, "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleVerify = async (documentId) => {
+    if (!documentId || verifyingId) return;
+
+    try {
+      setVerifyingId(documentId);
+
+      await api.post(`/documents/${documentId}/verify`);
+
+      showToast("Document verified successfully");
+
+      setEditingId(null);
+      setEditData({});
+      setExpandedId(null);
+      setDetail(null);
+
+      await loadDocuments(true);
+    } catch (err) {
+      console.error("Failed to verify document:", err);
+
+      const message =
+        err.response?.data?.detail ||
+        "Failed to verify document.";
+
+      setError(message);
+      showToast(message, "error");
+    } finally {
+      setVerifyingId(null);
+    }
+  };
+
+  const openInAiSearch = (event, documentId) => {
+    event.stopPropagation();
+    navigate(`/ai-search?documentId=${documentId}`);
+  };
 
   if (loading) {
     return (
@@ -343,10 +413,6 @@ export default function Documents() {
       </div>
     );
   }
-
-  // -------------------------
-  // Error state
-  // -------------------------
 
   if (error) {
     return (
@@ -387,7 +453,7 @@ export default function Documents() {
 
   return (
     <div className="min-h-full bg-[#fafbff] px-5 py-5">
-      {/* Header */}
+      {/* HEADER */}
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-[24px] font-bold leading-tight text-[#061f3d]">
@@ -407,7 +473,9 @@ export default function Documents() {
           >
             <RefreshCw
               size={13}
-              className={refreshing ? "animate-spin" : ""}
+              className={
+                refreshing ? "animate-spin" : ""
+              }
             />
 
             {refreshing ? "Refreshing..." : "Refresh"}
@@ -423,10 +491,9 @@ export default function Documents() {
         </div>
       </div>
 
-      {/* Search + Filters */}
+      {/* SEARCH + FILTERS */}
       <div className="mt-4 rounded-md border border-slate-200 bg-white p-3">
         <div className="flex flex-wrap items-center gap-2">
-          {/* Search */}
           <div className="relative min-w-[220px] flex-1">
             <Search
               size={14}
@@ -456,7 +523,6 @@ export default function Documents() {
             )}
           </div>
 
-          {/* Type */}
           <div className="relative">
             <select
               value={typeFilter}
@@ -479,33 +545,6 @@ export default function Documents() {
             />
           </div>
 
-          {/* Status */}
-          <div className="relative">
-            <select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="h-8 min-w-[120px] appearance-none rounded-md border border-slate-200 bg-white px-3 pr-7 text-[9px] capitalize text-slate-600 outline-none focus:border-[#0056a6]"
-            >
-              <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="processing">Processing</option>
-              <option value="processed">Processed</option>
-              <option value="failed">Failed</option>
-              <option value="review_required">
-                Review Required
-              </option>
-            </select>
-
-            <ChevronDown
-              size={12}
-              className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-400"
-            />
-          </div>
-
-          {/* Sort */}
           <div className="relative">
             <select
               value={sortBy}
@@ -533,7 +572,6 @@ export default function Documents() {
             />
           </div>
 
-          {/* Clear */}
           {hasFilters && (
             <button
               onClick={clearFilters}
@@ -550,34 +588,33 @@ export default function Documents() {
 
           Showing {filteredDocuments.length} of{" "}
           {documents.length} documents
+
+          {reviewDocuments.length > 0 && (
+            <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 font-semibold text-orange-600">
+              <AlertCircle size={9} />
+              {reviewDocuments.length} need review
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Table */}
+      {/* TABLE */}
       <section className="mt-3 overflow-hidden rounded-md border border-slate-200 bg-white">
         <div className="grid grid-cols-[1.6fr_1fr_1fr_0.8fr_0.35fr] border-b border-slate-200 bg-[#fcfcfd] px-3.5 py-2">
-          <span className="text-[7px] font-medium uppercase tracking-wide text-slate-500">
-            Filename
-          </span>
-
-          <span className="text-[7px] font-medium uppercase tracking-wide text-slate-500">
-            Type
-          </span>
-
-          <span className="text-[7px] font-medium uppercase tracking-wide text-slate-500">
-            Uploaded
-          </span>
-
-          <span className="text-[7px] font-medium uppercase tracking-wide text-slate-500">
-            Status
-          </span>
-
-          <span className="text-center text-[7px] font-medium uppercase tracking-wide text-slate-500">
-            AI
-          </span>
+          {["Filename", "Type", "Uploaded", "Manual Review", "AI"].map(
+            (header, index) => (
+              <span
+                key={header}
+                className={`text-[7px] font-medium uppercase tracking-wide text-slate-500 ${
+                  index === 4 ? "text-center" : ""
+                }`}
+              >
+                {header}
+              </span>
+            )
+          )}
         </div>
 
-        {/* No results */}
         {filteredDocuments.length === 0 ? (
           <div className="flex flex-col items-center justify-center px-4 py-14 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
@@ -635,15 +672,22 @@ export default function Documents() {
               uploadedDate &&
               !Number.isNaN(uploadedDate.getTime());
 
-            const status = getStatus(doc);
+            const confidence = getConfidence(doc);
+
+            const reviewRequired =
+              reviewRequiredIds.has(doc.id) ||
+              isReviewRequired(doc);
+
+            const isEditing = editingId === doc.id;
+            const isVerifying = verifyingId === doc.id;
 
             return (
               <div
                 key={doc.id}
                 className="border-b border-slate-200 last:border-b-0"
               >
+                {/* MAIN ROW */}
                 <div className="grid grid-cols-[1.6fr_1fr_1fr_0.8fr_0.35fr] items-center px-3.5 py-2.5">
-                  {/* Filename */}
                   <button
                     onClick={() => toggleRow(doc.id)}
                     className="flex min-w-0 items-center gap-2 text-left transition hover:bg-[#fafbff]"
@@ -670,45 +714,51 @@ export default function Documents() {
                     </span>
                   </button>
 
-                  {/* Type */}
                   <span className="truncate text-[8px] text-slate-500">
                     {doc.doc_type || "Unknown"}
                   </span>
 
-                  {/* Uploaded */}
                   <span className="text-[8px] text-slate-500">
                     {validDate
                       ? uploadedDate.toLocaleString()
                       : "—"}
                   </span>
 
-                  {/* Status */}
-                  <span>
-                    <span
-                      className={`inline-flex rounded-full px-2 py-0.5 text-[7px] font-semibold capitalize ${
-                        status === "processed"
-                          ? "bg-green-50 text-green-600"
-                          : status === "processing"
-                          ? "bg-blue-50 text-blue-600"
-                          : status === "failed"
-                          ? "bg-red-50 text-red-600"
-                          : status === "review_required"
-                          ? "bg-orange-50 text-orange-600"
-                          : "bg-yellow-50 text-yellow-600"
-                      }`}
-                    >
-                      {status.replace("_", " ")}
-                    </span>
-                  </span>
+                  <div>
+                    {reviewRequired ? (
+                      <button
+                        type="button"
+                        onClick={(event) =>
+                          startHumanReview(event, doc)
+                        }
+                        className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-[7px] font-bold text-orange-600 transition hover:bg-orange-100 hover:text-orange-700"
+                        title="Review and verify extracted information"
+                      >
+                        <Pencil size={8} />
+                        Yes
+                      </button>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-[7px] font-semibold text-green-600">
+                        <CheckCircle2 size={8} />
+                        No
+                      </span>
+                    )}
 
-                  {/* AI Search */}
+                    {confidence !== null && (
+                      <p className="mt-0.5 text-[7px] text-slate-400">
+                        {(confidence * 100).toFixed(1)}%
+                        confidence
+                      </p>
+                    )}
+                  </div>
+
                   <button
                     type="button"
                     title={`Open ${
                       doc.filename || "document"
                     } in AI Search`}
-                    onClick={(e) =>
-                      openInAiSearch(e, doc.id)
+                    onClick={(event) =>
+                      openInAiSearch(event, doc.id)
                     }
                     className="mx-auto flex h-7 w-7 items-center justify-center rounded-md text-[#3451D1] transition hover:bg-[#E8EEFF] hover:text-[#2440B8]"
                   >
@@ -716,10 +766,165 @@ export default function Documents() {
                   </button>
                 </div>
 
-                {/* Expanded details */}
+                {/* EXPANDED */}
                 {expandedId === doc.id && (
                   <div className="border-t border-slate-100 bg-[#fafbff] px-3.5 py-3">
-                    {detailLoading ? (
+                    {isEditing ? (
+                      <div>
+                        {/* REVIEW HEADER */}
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <ShieldCheck
+                                size={14}
+                                className="text-orange-500"
+                              />
+
+                              <p className="text-[9px] font-bold uppercase tracking-wide text-orange-600">
+                                Human Review Required
+                              </p>
+                            </div>
+
+                            <p className="mt-1 text-[8px] text-slate-400">
+                              The AI extraction confidence is below the
+                              required threshold. Review and correct the
+                              extracted information before verifying this
+                              document.
+                            </p>
+                          </div>
+
+                          <div className="flex shrink-0 items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={cancelEditing}
+                              disabled={saving || isVerifying}
+                              className="inline-flex h-7 items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 text-[8px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+                            >
+                              <X size={11} />
+                              Cancel
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleSave(doc.id)}
+                              disabled={saving || isVerifying}
+                              className="inline-flex h-7 items-center gap-1 rounded-md bg-[#003b73] px-2.5 text-[8px] font-semibold text-white transition hover:bg-[#064b8c] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {saving ? (
+                                <>
+                                  <Loader2
+                                    size={11}
+                                    className="animate-spin"
+                                  />
+                                  Saving...
+                                </>
+                              ) : (
+                                <>
+                                  <Save size={11} />
+                                  Save Changes
+                                </>
+                              )}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleVerify(doc.id)}
+                              disabled={saving || isVerifying}
+                              className="inline-flex h-7 items-center gap-1 rounded-md bg-[#087443] px-2.5 text-[8px] font-semibold text-white transition hover:bg-[#096138] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {isVerifying ? (
+                                <>
+                                  <Loader2
+                                    size={11}
+                                    className="animate-spin"
+                                  />
+                                  Verifying...
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle2 size={11} />
+                                  Mark Verified
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* CONFIDENCE */}
+                        <div className="mt-3 flex items-center gap-2 rounded-md border border-orange-200 bg-orange-50 px-3 py-2">
+                          <AlertCircle
+                            size={13}
+                            className="text-orange-500"
+                          />
+
+                          <span className="text-[8px] font-semibold text-orange-700">
+                            Extraction Confidence:
+                          </span>
+
+                          <span className="text-[8px] font-bold text-orange-700">
+                            {confidence !== null
+                              ? `${(confidence * 100).toFixed(1)}%`
+                              : "Unknown"}
+                          </span>
+                        </div>
+
+                        {/* EDIT FIELDS */}
+                        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                          {[
+                            ["doc_type", "Document Type"],
+                            ["reference_number", "Reference Number"],
+                            ["department", "Department"],
+                            ["issue_date", "Issue Date", "date"],
+                            ["expiry_date", "Expiry Date", "date"],
+                            ["amount", "Amount"],
+                            ["vendor_party", "Vendor / Party"],
+                            ["asset_id", "Asset ID"],
+                          ].map(([field, label, type]) => (
+                            <div key={field}>
+                              <label className="mb-1 block text-[8px] font-semibold uppercase tracking-wide text-slate-400">
+                                {label}
+                              </label>
+
+                              <input
+                                type={type || "text"}
+                                value={editData[field] ?? ""}
+                                onChange={(event) =>
+                                  updateEditField(
+                                    field,
+                                    event.target.value
+                                  )
+                                }
+                                placeholder={
+                                  field === "amount"
+                                    ? "Amount"
+                                    : undefined
+                                }
+                                className="h-8 w-full rounded-md border border-slate-200 bg-white px-2.5 text-[9px] text-slate-700 outline-none focus:border-[#0056a6]"
+                              />
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* SUMMARY */}
+                        <div className="mt-3">
+                          <label className="mb-1 block text-[8px] font-semibold uppercase tracking-wide text-slate-400">
+                            Summary
+                          </label>
+
+                          <textarea
+                            value={editData.summary || ""}
+                            onChange={(event) =>
+                              updateEditField(
+                                "summary",
+                                event.target.value
+                              )
+                            }
+                            rows={5}
+                            className="w-full resize-y rounded-md border border-slate-200 bg-white px-2.5 py-2 text-[9px] leading-relaxed text-slate-700 outline-none focus:border-[#0056a6]"
+                          />
+                        </div>
+                      </div>
+                    ) : detailLoading ? (
                       <div className="flex items-center gap-2 text-[9px] text-slate-400">
                         <Loader2
                           size={14}
@@ -734,6 +939,34 @@ export default function Documents() {
                       </div>
                     ) : (
                       <>
+                        {/* REVIEW SHORTCUT */}
+                        {reviewRequired && (
+                          <div className="mb-3 flex items-center justify-between rounded-md border border-orange-200 bg-orange-50 px-3 py-2.5">
+                            <div>
+                              <p className="text-[8px] font-bold uppercase tracking-wide text-orange-600">
+                                Human Review Required
+                              </p>
+
+                              <p className="mt-0.5 text-[8px] text-orange-700">
+                                This document has not yet been verified
+                                by a human.
+                              </p>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={(event) =>
+                                startHumanReview(event, doc)
+                              }
+                              className="inline-flex items-center gap-1 rounded-md bg-orange-500 px-2.5 py-1.5 text-[8px] font-semibold text-white transition hover:bg-orange-600"
+                            >
+                              <Pencil size={10} />
+                              Review Document
+                            </button>
+                          </div>
+                        )}
+
+                        {/* AI SUMMARY */}
                         {detail?.document?.summary && (
                           <div className="mb-3">
                             <p className="mb-1 text-[8px] font-semibold uppercase tracking-wide text-slate-400">
@@ -746,6 +979,7 @@ export default function Documents() {
                           </div>
                         )}
 
+                        {/* COMPLIANCE */}
                         {detail?.compliance?.length ? (
                           <div>
                             <p className="mb-1.5 text-[8px] font-semibold uppercase tracking-wide text-slate-400">
@@ -753,38 +987,32 @@ export default function Documents() {
                             </p>
 
                             <div className="space-y-1.5">
-                              {detail.compliance.map(
-                                (item) => (
-                                  <div
-                                    key={item.id}
-                                    className="rounded-md border border-slate-200 bg-white px-3 py-2 text-[9px] text-slate-600"
-                                  >
-                                    <span className="font-semibold">
-                                      {item.risk_type ||
-                                        "Risk"}
-                                    </span>
+                              {detail.compliance.map((item) => (
+                                <div
+                                  key={item.id}
+                                  className="rounded-md border border-slate-200 bg-white px-3 py-2 text-[9px] text-slate-600"
+                                >
+                                  <span className="font-semibold">
+                                    {item.risk_type || "Risk"}
+                                  </span>
 
-                                    {" — "}
+                                  {" — "}
 
-                                    Deadline{" "}
-                                    {item.deadline_date ||
-                                      "—"}
+                                  Deadline{" "}
+                                  {item.deadline_date || "—"}
 
-                                    {" — "}
+                                  {" — "}
 
-                                    <span className="font-medium">
-                                      {item.urgency ||
-                                        "Unknown"}
-                                    </span>
-                                  </div>
-                                )
-                              )}
+                                  <span className="font-medium">
+                                    {item.urgency || "Unknown"}
+                                  </span>
+                                </div>
+                              ))}
                             </div>
                           </div>
                         ) : (
                           <p className="text-[9px] text-slate-400">
-                            No compliance items for this
-                            document.
+                            No compliance items for this document.
                           </p>
                         )}
                       </>
@@ -796,7 +1024,7 @@ export default function Documents() {
           })
         )}
 
-        {/* Pagination */}
+        {/* PAGINATION */}
         {filteredDocuments.length > PAGE_SIZE && (
           <div className="flex items-center justify-between border-t border-slate-200 px-3.5 py-2.5">
             <span className="text-[8px] text-slate-400">
@@ -849,5 +1077,4 @@ export default function Documents() {
         )}
       </section>
     </div>
-  );
-}
+  );}

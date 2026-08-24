@@ -15,102 +15,62 @@ export default function Dashboard() {
   useEffect(() => {
     getComplianceStats()
       .then((res) => setComplianceStats(res.data))
-      .catch((err) => console.error(err));
+      .catch(console.error);
   }, []);
 
   const stats = [
-    [
-      "TOTAL DOCUMENTS PROCESSED",
-      complianceStats?.total_documents ?? "—",
-      "",
-      "#0056B3",
-    ],
-    [
-      "CRITICAL RISKS",
-      complianceStats?.critical ?? "—",
-      "Action required",
-      "#EF4444",
-    ],
-    [
-      "DUE IN 7 DAYS",
-      complianceStats?.upcoming_7_days ?? "—",
-      "",
-      "#0056B3",
-    ],
-    [
-      "OVERDUE",
-      complianceStats?.overdue ?? "—",
-      "",
-      "#EF4444"
-    ],
+    ["TOTAL DOCUMENTS PROCESSED", complianceStats?.total_documents ?? "—", "", "#0056B3"],
+    ["CRITICAL RISKS", complianceStats?.critical ?? "—", "Action required", "#EF4444"],
+    ["DUE IN 7 DAYS", complianceStats?.upcoming_7_days ?? "—", "", "#0056B3"],
+    ["OVERDUE", complianceStats?.overdue ?? "—", "", "#EF4444"],
   ];
 
   return (
     <main className="min-h-full bg-[#DCEBFA] p-5">
-
-      {/* Header */}
-      <div className="flex items-start justify-between mb-6">
+      {/* HEADER */}
+      <div className="mb-6 flex items-start justify-between">
         <div>
           <h1 className="text-[30px] font-bold tracking-tight text-[#111827]">
             Welcome back, Administrator.
           </h1>
-
-          <p className="text-[15px] text-[#1E293B]/65 mt-1">
+          <p className="mt-1 text-[15px] text-[#1E293B]/65">
             Overview of document intelligence activities.
           </p>
         </div>
 
-        <button
-          className="
-            px-5 h-11
-            rounded-lg
-            bg-[#002D62]
-            hover:bg-[#0056B3]
-            text-white text-[12px] font-bold
-            transition
-          "
-        >
-         <b> +</b>&nbsp;Upload Documents
+        <button className="h-11 rounded-lg bg-[#002D62] px-5 text-[12px] font-bold text-white transition hover:bg-[#0056B3]">
+          <b>+</b>&nbsp;Upload Documents
         </button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-4 gap-3 mb-4">
+      {/* STATS */}
+      <div className="mb-4 grid grid-cols-4 gap-3">
         {stats.map(([title, value, extra, color]) => (
           <div
             key={title}
             onMouseEnter={() => setHoveredCard(title)}
             onMouseLeave={() => setHoveredCard(null)}
-            className={`
-              h-[110px]
-              bg-white
-              border border-[#E5E7EB]
-              shadow-sm
-              rounded-xl
-              px-4 py-3
-              transition-all duration-300 ease-out
-              ${hoveredCard === title ? "scale-[1.08] shadow-lg z-10" : hoveredCard ? "scale-[0.96] opacity-80" : ""}
-            `}
+            className={`h-[110px] rounded-xl border border-[#E5E7EB] bg-white px-4 py-3 shadow-sm transition-all duration-300 ease-out ${
+              hoveredCard === title
+                ? "z-10 scale-[1.08] shadow-lg"
+                : hoveredCard
+                ? "scale-[0.96] opacity-80"
+                : ""
+            }`}
           >
-            <div className="flex justify-between items-center">
-              <span className="text-[14px] font-bold text-center text-[#1E293B]/70">
+            <div className="flex items-center justify-between">
+              <span className="text-center text-[14px] font-bold text-[#1E293B]/70">
                 {title}
               </span>
-
-              <span
-                className="text-[13px]"
-                style={{ color }}
-              >
+              <span className="text-[13px]" style={{ color }}>
                 ▤
               </span>
             </div>
 
-            <div className="flex items-end gap-2 mt-2">
+            <div className="mt-2 flex items-end gap-2">
               <span
-                className={`font-bold text-[#111827] leading-none ${
-                  value === "Healthy"
-                    ? "text-[22px]"
-                    : "text-[25px]"
+                className={`font-bold leading-none text-[#111827] ${
+                  value === "Healthy" ? "text-[22px]" : "text-[25px]"
                 }`}
               >
                 {value}
@@ -121,8 +81,6 @@ export default function Dashboard() {
                   className={`text-[8px] ${
                     title === "PENDING REVIEWS"
                       ? "text-[#EF4444]"
-                      : title === "SYSTEM STATUS"
-                      ? "text-[#10B981]"
                       : "text-[#10B981]"
                   }`}
                 >
@@ -134,49 +92,23 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Main Content */}
+      {/* MAIN CONTENT */}
       <div className="grid grid-cols-[minmax(0,1fr)_250px] gap-4">
-
-        {/* Recent Activity */}
-        <section
-          className="
-            bg-white
-            border border-[#E5E7EB]
-            rounded-lg
-            overflow-hidden
-          "
-        >
-          <div
-            className="
-              h-11
-              px-4
-              flex items-center justify-between
-              border-b border-[#E5E7EB]
-            "
-          >
+        {/* RECENT ACTIVITY */}
+        <section className="overflow-hidden rounded-lg border border-[#E5E7EB] bg-white">
+          <div className="flex h-11 items-center justify-between border-b border-[#E5E7EB] px-4">
             <h2 className="text-[18px] font-bold text-[#111827]">
               Recent Activity
             </h2>
-
-            <button className="text-[13px] font-semibold hover:underline text-[#0056B3]">
+            <button className="text-[13px] font-semibold text-[#0056B3] hover:underline">
               View All
             </button>
           </div>
 
           <div className="px-4">
-
-            {/* Activity 1 */}
-            <div className="flex gap-3 py-4 border-b border-[#E5E7EB]">
-              <div
-                className="
-                  w-7 h-7 shrink-0
-                  rounded-full
-                  bg-[#D1FAE5]
-                  text-[#10B981]
-                  flex items-center justify-center
-                  text-[12px]
-                "
-              >
+            {/* ACTIVITY 1 */}
+            <div className="flex gap-3 border-b border-[#E5E7EB] py-4">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#D1FAE5] text-[12px] text-[#10B981]">
                 ✓
               </div>
 
@@ -185,19 +117,10 @@ export default function Dashboard() {
                   Safety_Manual_V2.pdf successfully analyzed.
                 </p>
 
-                <div className="flex items-center gap-2 mt-1">
-                  <span
-                    className="
-                      px-2 py-0.5
-                      rounded-full
-                      bg-[#D1FAE5]
-                      text-[#10B981]
-                      text-[7px]
-                    "
-                  >
+                <div className="mt-1 flex items-center gap-2">
+                  <span className="rounded-full bg-[#D1FAE5] px-2 py-0.5 text-[7px] text-[#10B981]">
                     High Confidence
                   </span>
-
                   <span className="text-[8px] text-[#1E293B]/50">
                     ◷ 2 mins ago
                   </span>
@@ -205,18 +128,9 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Activity 2 */}
-            <div className="flex gap-3 py-4 border-b border-[#E5E7EB]">
-              <div
-                className="
-                  w-7 h-7 shrink-0
-                  rounded-full
-                  bg-[#FEE2E2]
-                  text-[#EF4444]
-                  flex items-center justify-center
-                  text-[12px]
-                "
-              >
+            {/* ACTIVITY 2 */}
+            <div className="flex gap-3 border-b border-[#E5E7EB] py-4">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#FEE2E2] text-[12px] text-[#EF4444]">
                 !
               </div>
 
@@ -224,29 +138,18 @@ export default function Dashboard() {
                 <p className="text-[10px] text-[#111827]">
                   Tender_Ref_402.pdf flagged for manual review.
                 </p>
-
-                <p className="text-[8px] text-[#EF4444] mt-1">
+                <p className="mt-1 text-[8px] text-[#EF4444]">
                   Discrepancy found in 'Total Value' field.
                 </p>
-
-                <p className="text-[8px] text-[#1E293B]/50 mt-1">
+                <p className="mt-1 text-[8px] text-[#1E293B]/50">
                   ◷ 15 mins ago
                 </p>
               </div>
             </div>
 
-            {/* Activity 3 */}
+            {/* ACTIVITY 3 */}
             <div className="flex gap-3 py-4">
-              <div
-                className="
-                  w-7 h-7 shrink-0
-                  rounded-full
-                  bg-[#DBEAFE]
-                  text-[#0056B3]
-                  flex items-center justify-center
-                  text-[12px]
-                "
-              >
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#DBEAFE] text-[12px] text-[#0056B3]">
                 ↻
               </div>
 
@@ -255,20 +158,19 @@ export default function Dashboard() {
                   Batch processing started: Q3_Financial_Reports (45 files)
                 </p>
 
-                <p className="text-[8px] text-[#1E293B]/50 mt-1">
+                <p className="mt-1 text-[8px] text-[#1E293B]/50">
                   ◷ 1 hr ago
                 </p>
 
                 <div className="mt-2">
-                  <div className="h-1.5 bg-[#E5E7EB] rounded-full overflow-hidden">
-                    <div className="h-full w-[45%] bg-[#0056B3] rounded-full" />
+                  <div className="h-1.5 overflow-hidden rounded-full bg-[#E5E7EB]">
+                    <div className="h-full w-[45%] rounded-full bg-[#0056B3]" />
                   </div>
 
-                  <div className="flex justify-between mt-1">
+                  <div className="mt-1 flex justify-between">
                     <span className="text-[7px] text-[#1E293B]/50">
                       ◷ 1 hr ago
                     </span>
-
                     <span className="text-[7px] text-[#1E293B]/50">
                       45% Complete
                     </span>
@@ -276,83 +178,48 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-
           </div>
         </section>
 
-        {/* Right Column */}
+        {/* RIGHT COLUMN */}
         <div className="space-y-4">
-
-          {/* Quick Actions */}
-          <section
-            className="
-              bg-[#002D62]
-              rounded-lg
-              p-4
-              text-white
-            "
-          >
-            <h2 className="text-[14px] text-center font-bold mb-2">
+          {/* QUICK ACTIONS */}
+          <section className="rounded-lg bg-[#002D62] p-4 text-white">
+            <h2 className="mb-2 text-center text-[14px] font-bold">
               Quick Actions
             </h2>
 
             <div className="grid grid-cols-2 gap-2">
-              <button
-                className="
-                  h-12 rounded-md
-                  bg-white/10 hover:bg-white/20
-                  text-[10px] font-medium
-                "
-              >
-                <div className="text-[14px] mb-1">↥</div>
+              <button className="h-12 rounded-md bg-white/10 text-[10px] font-medium hover:bg-white/20">
+                <div className="mb-1 text-[14px]">↥</div>
                 Upload New
               </button>
 
-              <button
-                className="
-                  h-12 rounded-md
-                  bg-white/10 hover:bg-white/20
-                  text-[10px] font-medium
-                "
-              >
-                <div className="text-[14px] mb-1">⌕</div>
+              <button className="h-12 rounded-md bg-white/10 text-[10px] font-medium hover:bg-white/20">
+                <div className="mb-1 text-[14px]">⌕</div>
                 Search Docs
               </button>
 
-              <button
-                className="
-                  col-span-2 h-12
-                  rounded-md
-                  bg-white/10 hover:bg-white/20
-                  text-[10px] font-medium
-                "
-              >
-                <div className="text-[14px] mb-1">▣</div>
+              <button className="col-span-2 h-12 rounded-md bg-white/10 text-[10px] font-medium hover:bg-white/20">
+                <div className="mb-1 text-[14px]">▣</div>
                 Generate Report
               </button>
             </div>
           </section>
 
-          {/* Distribution */}
-          <section
-            className="
-              bg-white
-              border border-[#E5E7EB]
-              rounded-lg
-              p-4
-            "
-          >
-            <h2 className="text-[16px] font-bold text-[#111827] text-center mb-4">
+          {/* DISTRIBUTION */}
+          <section className="rounded-lg border border-[#E5E7EB] bg-white p-4">
+            <h2 className="mb-4 text-center text-[16px] font-bold text-[#111827]">
               Document Distribution
             </h2>
 
             <div className="space-y-3">
               {distribution.map(([name, value, color]) => (
                 <div key={name}>
-                  <div className="flex justify-between mb-1">
+                  <div className="mb-1 flex justify-between">
                     <span className="text-[8px] text-[#1E293B]">
                       <span
-                        className="inline-block w-1.5 h-1.5 rounded-full mr-1"
+                        className="mr-1 inline-block h-1.5 w-1.5 rounded-full"
                         style={{ backgroundColor: color }}
                       />
                       {name}
@@ -363,7 +230,7 @@ export default function Dashboard() {
                     </span>
                   </div>
 
-                  <div className="h-1.5 bg-[#E5E7EB] rounded-full overflow-hidden">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-[#E5E7EB]">
                     <div
                       className="h-full rounded-full"
                       style={{
@@ -377,44 +244,32 @@ export default function Dashboard() {
             </div>
           </section>
 
-          {/* Storage */}
-          <section
-            className="
-              bg-white
-              border border-[#E5E7EB]
-              rounded-lg
-              p-4
-            "
-          >
+          {/* STORAGE */}
+          <section className="rounded-lg border border-[#E5E7EB] bg-white p-4">
             <div className="flex justify-between">
               <h2 className="text-[11px] font-semibold text-[#111827]">
                 Storage Usage
               </h2>
-
-              <span className="text-[#64748B]">
-                ♧
-              </span>
+              <span className="text-[#64748B]">♧</span>
             </div>
 
-            <p className="text-[13px] font-semibold text-[#111827] mt-3">
+            <p className="mt-3 text-[13px] font-semibold text-[#111827]">
               1.2 TB
               <span className="text-[8px] font-normal text-[#1E293B]/50">
                 {" "} / 5.0 TB
               </span>
             </p>
 
-            <div className="h-1.5 bg-[#E5E7EB] rounded-full mt-2">
-              <div className="h-full w-[24%] bg-[#002D62] rounded-full" />
+            <div className="mt-2 h-1.5 rounded-full bg-[#E5E7EB]">
+              <div className="h-full w-[24%] rounded-full bg-[#002D62]" />
             </div>
 
-            <p className="text-right text-[7px] text-[#1E293B]/50 mt-2">
+            <p className="mt-2 text-right text-[7px] text-[#1E293B]/50">
               24% Used
             </p>
           </section>
-
         </div>
       </div>
-
     </main>
   );
 }
