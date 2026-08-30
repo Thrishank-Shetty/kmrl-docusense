@@ -1,171 +1,289 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import api from "../../lib/api";
 
 export default function Register() {
-  const [show, setShow] = useState(false);
-  const [department, setDepartment] = useState("");
   const navigate = useNavigate();
 
-  return (
-    <div className="h-screen flex bg-[#F3F4F6] overflow-hidden">
+  const [form, setForm] = useState({
+    username: "",
+    fullName: "",
+    email: "",
+    department: "",
+    password: "",
+    confirmPassword: "",
+  });
 
-      {/* Left */}
+  const [show, setShow] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+
+    setError("");
+    setSuccess("");
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (loading) return;
+
+    setError("");
+    setSuccess("");
+
+    if (form.password !== form.confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    if (form.password.length < 6) {
+      setError("Password must contain at least 6 characters.");
+      return;
+    }
+
+    if (!form.email.trim()) {
+      setError("Please enter your work email.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const username =
+        form.username.trim() || form.email.trim();
+
+      await api.post("/auth/register", {
+        username,
+        email: form.email.trim(),
+        password: form.password,
+      });
+
+      setSuccess(
+        "Account created successfully. Redirecting to login..."
+      );
+
+      setTimeout(() => {
+        navigate("/login", { replace: true });
+      }, 1200);
+    } catch (err) {
+      console.error("Registration failed:", err);
+
+      setError(
+        err.response?.data?.detail ||
+          "Unable to create your account. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex h-screen overflow-hidden bg-[#F3F4F6]">
+
+      {/* LEFT SIDE */}
       <div
-        className="hidden md:flex w-1/2 h-screen bg-cover bg-center relative text-white"
-        style={{ backgroundImage: "url('/kmrl-register-bg.jpg')" }}
+        className="relative hidden h-screen w-1/2 bg-cover bg-center text-white md:flex"
+        style={{
+          backgroundImage: "url('/kmrl-register-bg.jpg')",
+        }}
       >
         <div className="absolute inset-0 bg-[#002D62]/85" />
 
-        <div className="relative z-10 flex flex-col justify-center w-full px-16">
-
-          <h1 className="text-[30px] font-bold flex items-center gap-3">
+        <div className="relative z-10 flex w-full flex-col justify-center px-16">
+          <h1 className="flex items-center gap-3 text-[30px] font-bold">
             ▰ KMRL DocuSense
           </h1>
 
-          <h2 className="text-[19px] font-semibold leading-relaxed mt-8 max-w-[500px]">
+          <h2 className="mt-8 max-w-[500px] text-[19px] font-semibold leading-relaxed">
             Infrastructure Intelligence powered by precise
             <br />
             document extraction and analytics.
           </h2>
 
-          <div className="flex gap-3 mt-8">
-
-            <span className="px-4 py-2 rounded-lg bg-white/10 border border-white/15
-              text-[10px]">
-              <span className="text-[#10B981]">●</span> Secure Architecture
+          <div className="mt-8 flex gap-3">
+            <span className="rounded-lg border border-white/15 bg-white/10 px-4 py-2 text-[10px]">
+              <span className="text-[#10B981]">●</span>{" "}
+              Secure Architecture
             </span>
 
-            <span className="px-4 py-2 rounded-lg bg-white/10 border border-white/15
-              text-[10px]">
+            <span className="rounded-lg border border-white/15 bg-white/10 px-4 py-2 text-[10px]">
               ↗ High-Speed Extraction
             </span>
-
           </div>
         </div>
       </div>
 
+      {/* RIGHT SIDE */}
+      <div className="flex h-screen w-full items-center justify-center overflow-y-auto px-10 md:w-1/2">
+        <div className="w-full max-w-[460px] py-8">
 
-      {/* Right */}
-      <div className="w-full md:w-1/2 h-screen flex items-center justify-center px-10">
-
-        <div className="w-full max-w-[460px]">
-
-          {/* Heading */}
+          {/* HEADING */}
           <div className="mb-5">
             <h2 className="text-[22px] font-bold text-[#111827]">
               Create Your Account
             </h2>
 
-            <p className="text-[11px] text-[#1E293B]/65 mt-1">
+            <p className="mt-1 text-[11px] text-[#1E293B]/65">
               Register for secure access to enterprise document analytics.
             </p>
           </div>
 
+          {/* ERROR */}
+          {error && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+              <p className="text-[10px] leading-relaxed text-red-600">
+                {error}
+              </p>
+            </div>
+          )}
 
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            console.log("Register");
-          }}>
+          {/* SUCCESS */}
+          {success && (
+            <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3">
+              <p className="text-[10px] leading-relaxed text-green-600">
+                {success}
+              </p>
+            </div>
+          )}
 
-            {/* Name */}
-            <label className="block text-[10px] font-semibold text-[#1E293B] mb-1">
+          {/* FORM */}
+          <form onSubmit={handleSubmit}>
+
+            {/* FULL NAME */}
+            <label className="mb-1 block text-[10px] font-semibold text-[#1E293B]">
               Full Name
             </label>
 
             <input
               type="text"
+              name="fullName"
+              value={form.fullName}
+              onChange={handleChange}
               placeholder="John Doe"
               required
-              className="w-full h-10 px-4 mb-3 border border-[#E5E7EB] rounded-lg
-                bg-white text-[12px] text-[#111827] outline-none
-                placeholder:text-[#9CA3AF] focus:border-[#0056B3]
-                focus:ring-2 focus:ring-[#0056B3]/10"
+              disabled={loading}
+              className="mb-3 h-10 w-full rounded-lg border border-[#E5E7EB] bg-white px-4 text-[12px] text-[#111827] outline-none placeholder:text-[#9CA3AF] focus:border-[#0056B3] focus:ring-2 focus:ring-[#0056B3]/10 disabled:bg-slate-50"
             />
 
+            {/* USERNAME */}
+            <label className="mb-1 block text-[10px] font-semibold text-[#1E293B]">
+              Username
+            </label>
 
-            {/* Email */}
-            <label className="block text-[10px] font-semibold text-[#1E293B] mb-1">
+            <input
+              type="text"
+              name="username"
+              value={form.username}
+              onChange={handleChange}
+              placeholder="Choose a username"
+              disabled={loading}
+              className="mb-2 h-10 w-full rounded-lg border border-[#E5E7EB] bg-white px-4 text-[12px] text-[#111827] outline-none placeholder:text-[#9CA3AF] focus:border-[#0056B3] focus:ring-2 focus:ring-[#0056B3]/10 disabled:bg-slate-50"
+            />
+
+            <p className="mb-3 text-[9px] text-slate-400">
+              If left empty, your email will be used as the username.
+            </p>
+
+            {/* EMAIL */}
+            <label className="mb-1 block text-[10px] font-semibold text-[#1E293B]">
               Work Email
             </label>
 
             <input
               type="email"
+              name="email"
+              value={form.email}
+              onChange={handleChange}
               placeholder="name@kmrl.co.in"
               required
-              className="w-full h-10 px-4 mb-3 border border-[#E5E7EB] rounded-lg
-                bg-white text-[12px] text-[#111827] outline-none
-                placeholder:text-[#9CA3AF] focus:border-[#0056B3]
-                focus:ring-2 focus:ring-[#0056B3]/10"
+              disabled={loading}
+              className="mb-3 h-10 w-full rounded-lg border border-[#E5E7EB] bg-white px-4 text-[12px] text-[#111827] outline-none placeholder:text-[#9CA3AF] focus:border-[#0056B3] focus:ring-2 focus:ring-[#0056B3]/10 disabled:bg-slate-50"
             />
 
-
-            {/* Department */}
-            <label className="block text-[10px] font-semibold text-[#1E293B] mb-1">
+            {/* DEPARTMENT */}
+            <label className="mb-1 block text-[10px] font-semibold text-[#1E293B]">
               Department
             </label>
 
             <select
-              value={department}
-              onChange={(e) => setDepartment(e.target.value)}
+              name="department"
+              value={form.department}
+              onChange={handleChange}
               required
-              className="w-full h-10 px-4 mb-3 border border-[#E5E7EB] rounded-lg
-                bg-white text-[12px] text-[#1E293B] outline-none
-                focus:border-[#0056B3] focus:ring-2 focus:ring-[#0056B3]/10"
+              disabled={loading}
+              className="mb-3 h-10 w-full rounded-lg border border-[#E5E7EB] bg-white px-4 text-[12px] text-[#1E293B] outline-none focus:border-[#0056B3] focus:ring-2 focus:ring-[#0056B3]/10 disabled:bg-slate-50"
             >
               <option value="">Select your department</option>
-              <option>Operations</option>
-              <option>Engineering</option>
-              <option>Finance</option>
-              <option>Human Resources</option>
-              <option>IT</option>
-              <option>Administration</option>
+              <option value="Operations">Operations</option>
+              <option value="Engineering">Engineering</option>
+              <option value="Finance">Finance</option>
+              <option value="Human Resources">
+                Human Resources
+              </option>
+              <option value="IT">IT</option>
+              <option value="Administration">
+                Administration
+              </option>
             </select>
 
+            {/* PASSWORDS */}
+            <div className="mb-3 grid grid-cols-2 gap-4">
 
-            {/* Passwords */}
-            <div className="grid grid-cols-2 gap-4 mb-3">
-
+              {/* PASSWORD */}
               <div>
-                <label className="block text-[10px] font-semibold text-[#1E293B] mb-1">
+                <label className="mb-1 block text-[10px] font-semibold text-[#1E293B]">
                   Password
                 </label>
 
                 <input
                   type={show ? "text" : "password"}
+                  name="password"
+                  value={form.password}
+                  onChange={handleChange}
                   placeholder="••••••••"
+                  autoComplete="new-password"
                   required
-                  className="w-full h-10 px-4 border border-[#E5E7EB] rounded-lg
-                    bg-white text-[12px] text-[#111827] outline-none
-                    placeholder:text-[#9CA3AF] focus:border-[#0056B3]
-                    focus:ring-2 focus:ring-[#0056B3]/10"
+                  disabled={loading}
+                  className="h-10 w-full rounded-lg border border-[#E5E7EB] bg-white px-4 text-[12px] text-[#111827] outline-none placeholder:text-[#9CA3AF] focus:border-[#0056B3] focus:ring-2 focus:ring-[#0056B3]/10 disabled:bg-slate-50"
                 />
               </div>
 
+              {/* CONFIRM PASSWORD */}
               <div>
-                <label className="block text-[10px] font-semibold text-[#1E293B] mb-1">
+                <label className="mb-1 block text-[10px] font-semibold text-[#1E293B]">
                   Confirm Password
                 </label>
 
                 <input
                   type={show ? "text" : "password"}
+                  name="confirmPassword"
+                  value={form.confirmPassword}
+                  onChange={handleChange}
                   placeholder="••••••••"
+                  autoComplete="new-password"
                   required
-                  className="w-full h-10 px-4 border border-[#E5E7EB] rounded-lg
-                    bg-white text-[12px] text-[#111827] outline-none
-                    placeholder:text-[#9CA3AF] focus:border-[#0056B3]
-                    focus:ring-2 focus:ring-[#0056B3]/10"
+                  disabled={loading}
+                  className="h-10 w-full rounded-lg border border-[#E5E7EB] bg-white px-4 text-[12px] text-[#111827] outline-none placeholder:text-[#9CA3AF] focus:border-[#0056B3] focus:ring-2 focus:ring-[#0056B3]/10 disabled:bg-slate-50"
                 />
               </div>
-
             </div>
 
-
-            {/* Show Password */}
-            <label className="flex items-center gap-2 mb-3 cursor-pointer">
+            {/* SHOW PASSWORD */}
+            <label className="mb-3 flex cursor-pointer items-center gap-2">
               <input
                 type="checkbox"
-                onChange={() => setShow(!show)}
-                className="w-3.5 h-3.5 accent-[#0056B3]"
+                checked={show}
+                onChange={() => setShow((prev) => !prev)}
+                disabled={loading}
+                className="h-3.5 w-3.5 accent-[#0056B3]"
               />
 
               <span className="text-[10px] text-[#1E293B]/70">
@@ -173,57 +291,54 @@ export default function Register() {
               </span>
             </label>
 
-
-            {/* Privacy */}
-            <label className="flex items-start gap-2 mb-4 cursor-pointer">
-
+            {/* PRIVACY */}
+            <label className="mb-4 flex cursor-pointer items-start gap-2">
               <input
                 type="checkbox"
                 required
-                className="w-3.5 h-3.5 mt-0.5 accent-[#0056B3]"
+                disabled={loading}
+                className="mt-0.5 h-3.5 w-3.5 accent-[#0056B3]"
               />
 
               <span className="text-[10px] leading-relaxed text-[#1E293B]/70">
                 I agree to the{" "}
-                <span className="text-[#0056B3] font-medium">
+                <span className="font-medium text-[#0056B3]">
                   KMRL Data Privacy Policy
                 </span>{" "}
                 and{" "}
-                <span className="text-[#0056B3] font-medium">
+                <span className="font-medium text-[#0056B3]">
                   Terms of Use.
                 </span>
               </span>
-
             </label>
 
-
-            {/* Register */}
+            {/* REGISTER */}
             <button
               type="submit"
-              className="w-full h-11 rounded-lg bg-[#002D62] hover:bg-[#0056B3]
-                text-white text-[12px] font-semibold transition shadow-sm"
+              disabled={loading}
+              className="flex h-11 w-full items-center justify-center rounded-lg bg-[#002D62] text-[12px] font-semibold text-white shadow-sm transition hover:bg-[#0056B3] disabled:cursor-not-allowed disabled:opacity-70"
             >
-              Create Account →
+              {loading
+                ? "Creating Account..."
+                : "Create Account →"}
             </button>
-
           </form>
 
-
-          {/* Sign In */}
-          <p className="text-center text-[10px] text-[#1E293B]/65 mt-5">
+          {/* LOGIN */}
+          <p className="mt-5 text-center text-[10px] text-[#1E293B]/65">
             Already have an account?{" "}
+
             <button
               type="button"
               onClick={() => navigate("/login")}
-              className="font-semibold text-[#0056B3] hover:text-[#002D62]"
+              disabled={loading}
+              className="font-semibold text-[#0056B3] transition hover:text-[#002D62] disabled:opacity-50"
             >
               Sign In
             </button>
           </p>
-
         </div>
       </div>
-
     </div>
   );
 }

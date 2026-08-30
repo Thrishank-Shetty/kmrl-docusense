@@ -1,5 +1,27 @@
 @import "tailwindcss";
 
+.text-\[7px\] {
+  font-size: 0.6875rem !important;
+}
+
+.text-\[8px\] {
+  font-size: 0.75rem !important;
+}
+
+.text-\[9px\] {
+  font-size: 0.8125rem !important;
+}
+
+.text-\[10px\],
+.text-\[11px\],
+.text-\[12px\] {
+  font-size: 0.875rem !important;
+}
+
+.text-\[13px\] {
+  font-size: 0.9375rem !important;
+}
+
 :root {
   --primary-color: #002D62;
   --secondary-color: #0056B3;

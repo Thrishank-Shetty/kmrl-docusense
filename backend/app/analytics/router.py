@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.database import get_db
-from app.models import Document, ComplianceItem
+from app.models import Document, ComplianceItem, DocumentChange
 
 
 router = APIRouter(
@@ -180,9 +180,6 @@ def analytics_summary(
 
     if range_days == 7:
 
-        # Start from today - 6 days so we get exactly
-        # seven calendar days including today.
-
         first_day = (
             now - timedelta(days=6)
         ).replace(
@@ -193,10 +190,6 @@ def analytics_summary(
         )
 
         daily_counts = {}
-
-        # Create all 7 days first.
-        # This makes sure days with zero documents
-        # still appear on the graph.
 
         for i in range(7):
 
@@ -209,8 +202,6 @@ def analytics_summary(
             daily_counts[day_key] = 0
 
 
-        # Count documents for each day.
-
         for (upload_date,) in documents:
 
             day_key = upload_date.date().isoformat()
@@ -219,8 +210,6 @@ def analytics_summary(
 
                 daily_counts[day_key] += 1
 
-
-        # Build graph data.
 
         for day, count in sorted(
             daily_counts.items()
@@ -250,8 +239,6 @@ def analytics_summary(
 
         for (upload_date,) in documents:
 
-            # Monday of the document's week
-
             monday = (
                 upload_date -
                 timedelta(days=upload_date.weekday())
@@ -263,8 +250,6 @@ def analytics_summary(
                 weekly_counts.get(week_key, 0) + 1
             )
 
-
-        # Build weekly graph data.
 
         for week, count in sorted(
             weekly_counts.items()
@@ -303,3 +288,128 @@ def analytics_summary(
 
         "volume_by_period": volume_by_period
     }
+
+
+# ---------------------------------------------------------
+# RECENT ACTIVITY FEED
+# ---------------------------------------------------------
+
+@router.get("/activity/recent")
+def get_recent_activity(
+    limit: int = 10,
+    db: Session = Depends(get_db)
+):
+
+    activities = []
+
+
+    # ---------------------------------------------------------
+    # RECENTLY PROCESSED DOCUMENTS
+    # ---------------------------------------------------------
+
+    recent_docs = (
+        db.query(Document)
+        .filter(Document.doc_type.isnot(None))
+        .order_by(Document.upload_date.desc())
+        .limit(limit)
+        .all()
+    )
+
+    for doc in recent_docs:
+
+        activities.append({
+            "type": "processed",
+            "message": f"{doc.filename} successfully analyzed",
+            "detail": doc.doc_type,
+            "timestamp": doc.upload_date,
+        })
+
+
+    # ---------------------------------------------------------
+    # DOCUMENTS FLAGGED FOR MANUAL REVIEW
+    # ---------------------------------------------------------
+
+    flagged_docs = (
+        db.query(Document)
+        .filter(
+            Document.extraction_confidence.isnot(None),
+            Document.extraction_confidence < 0.70,
+            Document.human_verified == False
+        )
+        .order_by(Document.upload_date.desc())
+        .limit(limit)
+        .all()
+    )
+
+    for doc in flagged_docs:
+
+        activities.append({
+            "type": "review_required",
+            "message": f"{doc.filename} flagged for manual review",
+            "detail": f"Low confidence ({round(doc.extraction_confidence * 100)}%)",
+            "timestamp": doc.upload_date,
+        })
+
+
+    # ---------------------------------------------------------
+    # RECENT COMPLIANCE RISKS
+    # ---------------------------------------------------------
+
+    recent_risks = (
+        db.query(ComplianceItem)
+        .order_by(ComplianceItem.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+    for item in recent_risks:
+
+        filename = (
+            item.document.filename
+            if item.document else "Unknown document"
+        )
+
+        activities.append({
+            "type": "risk_detected",
+            "message": f"{filename} — {item.risk_type or 'compliance risk'} detected",
+            "detail": item.urgency,
+            "timestamp": item.created_at,
+        })
+
+
+    # ---------------------------------------------------------
+    # RECENT HUMAN CORRECTIONS
+    # ---------------------------------------------------------
+
+    recent_changes = (
+        db.query(DocumentChange)
+        .order_by(DocumentChange.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+    for change in recent_changes:
+
+        filename = (
+            change.document.filename
+            if change.document else "Unknown document"
+        )
+
+        activities.append({
+            "type": "corrected",
+            "message": f"{filename} manually corrected",
+            "detail": change.ai_summary,
+            "timestamp": change.created_at,
+        })
+
+
+    # ---------------------------------------------------------
+    # MERGE, SORT BY MOST RECENT, TRIM
+    # ---------------------------------------------------------
+
+    activities.sort(
+        key=lambda x: x["timestamp"] or datetime.min,
+        reverse=True
+    )
+
+    return activities[:limit]

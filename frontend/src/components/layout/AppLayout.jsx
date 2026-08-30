@@ -1,5 +1,5 @@
 import Sidebar from "./Sidebar";
-import Header from "./Header";
+// import Header from "./Header";
 import { Outlet } from "react-router-dom";
 
 export default function AppLayout() {
@@ -16,7 +16,7 @@ export default function AppLayout() {
           max-[720px]:ml-0
         "
       >
-        <Header />
+        {/* <Header /> */}
 
         <main className="min-h-[calc(100vh-64px)] overflow-auto">
           <Outlet />

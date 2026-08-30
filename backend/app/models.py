@@ -98,3 +98,87 @@ class DocumentChange(Base):
         "Document",
         back_populates="change_history"
     )
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    username = Column(
+        String,
+        unique=True,
+        nullable=False,
+        index=True
+    )
+
+    email = Column(
+        String,
+        unique=True,
+        nullable=False,
+        index=True
+    )
+
+    hashed_password = Column(
+        String,
+        nullable=False
+    )
+
+    is_active = Column(
+        Boolean,
+        default=True,
+        nullable=False
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.now
+    )
+    login_sessions = relationship(
+        "LoginSession",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+class LoginSession(Base):
+    __tablename__ = "login_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False
+    )
+
+    token_jti = Column(
+        String,
+        unique=True,
+        nullable=False,
+        index=True
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.now,
+        nullable=False
+    )
+
+    expires_at = Column(
+        DateTime,
+        nullable=False
+    )
+
+    revoked = Column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
+
+    user = relationship(
+        "User",
+        back_populates="login_sessions"
+    )
+
+
